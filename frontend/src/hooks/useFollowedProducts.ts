@@ -4,14 +4,27 @@ const STORAGE_KEY = "broodradar_followed";
 
 const listeners = new Set<() => void>();
 
+let cachedRaw: string | null = null;
+let cachedSnapshot: string[] = [];
+
 function getSnapshot(): string[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return [];
+    if (raw === cachedRaw) return cachedSnapshot;
+    cachedRaw = raw;
+    if (!raw) {
+      cachedSnapshot = [];
+      return cachedSnapshot;
+    }
     const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed.filter((x): x is string => typeof x === "string") : [];
+    cachedSnapshot = Array.isArray(parsed)
+      ? parsed.filter((x): x is string => typeof x === "string")
+      : [];
+    return cachedSnapshot;
   } catch {
-    return [];
+    cachedRaw = null;
+    cachedSnapshot = [];
+    return cachedSnapshot;
   }
 }
 
