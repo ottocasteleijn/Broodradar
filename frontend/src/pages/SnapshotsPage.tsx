@@ -2,16 +2,19 @@ import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card, CardContent } from "@/components/ui/Card";
 import { Skeleton } from "@/components/ui/Skeleton";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, RefreshCw } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { api, type Snapshot, type Retailer } from "@/api/client";
+import { cn } from "@/lib/utils";
 
 export default function SnapshotsPage() {
   const [snapshots, setSnapshots] = useState<Snapshot[]>([]);
   const [retailers, setRetailers] = useState<Retailer[]>([]);
   const [loading, setLoading] = useState(true);
   const [retailerFilter, setRetailerFilter] = useState("");
+  const [refreshLoading, setRefreshLoading] = useState(false);
+  const [refreshMessage, setRefreshMessage] = useState<"success" | "error" | null>(null);
 
   useEffect(() => {
     api.retailers().then(setRetailers).catch(() => {});
@@ -25,6 +28,22 @@ export default function SnapshotsPage() {
       .finally(() => setLoading(false));
   }, [retailerFilter]);
 
+  const handleRefreshAll = async () => {
+    setRefreshLoading(true);
+    setRefreshMessage(null);
+    try {
+      const data = await api.refreshAll();
+      const failed = Object.entries(data.results).filter(([, v]) => !v.ok);
+      setRefreshMessage(failed.length === 0 ? "success" : "error");
+      const list = await api.snapshots(retailerFilter || undefined);
+      setSnapshots(list);
+    } catch {
+      setRefreshMessage("error");
+    } finally {
+      setRefreshLoading(false);
+    }
+  };
+
   const getRetailerName = (id: string) =>
     retailers.find((r) => r.id === id)?.name || id;
 
@@ -33,6 +52,33 @@ export default function SnapshotsPage() {
       <div>
         <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900">Snapshot historie</h1>
         <p className="text-slate-500 mt-2">Bekijk en vergelijk historische data snapshots.</p>
+      </div>
+
+      <div className="rounded-lg border border-slate-200 bg-slate-50/50 px-4 py-3 text-sm text-slate-600">
+        Snapshots worden elke nacht automatisch ververst om 04:00. Je kunt ook handmatig een nieuwe snapshot maken voor alle supermarkten.
+      </div>
+
+      <div className="flex flex-wrap items-center gap-4 mb-8">
+        <div className="flex items-center gap-2">
+          {retailers.filter((r) => r.active).map((r) => (
+            r.icon ? <img key={r.id} src={r.icon} alt="" className="h-6 w-6 object-contain" title={r.name} /> : null
+          ))}
+        </div>
+        <Button
+          variant="outline"
+          onClick={handleRefreshAll}
+          disabled={refreshLoading}
+          className="inline-flex items-center gap-2"
+        >
+          <RefreshCw className={cn("h-4 w-4", refreshLoading && "animate-spin")} />
+          {refreshLoading ? "Bezig…" : "Ververs alle supermarkten"}
+        </Button>
+        {refreshMessage === "success" && (
+          <span className="text-sm text-emerald-600">Snapshots bijgewerkt</span>
+        )}
+        {refreshMessage === "error" && (
+          <span className="text-sm text-red-600">Er ging iets mis</span>
+        )}
       </div>
 
       <div className="flex gap-4 mb-8">

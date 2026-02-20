@@ -4,10 +4,11 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 import Layout from "@/components/Layout";
 import LoginPage from "@/pages/LoginPage";
 import DashboardPage from "@/pages/DashboardPage";
+import ProductsPage from "@/pages/ProductsPage";
+import SupermarketsPage from "@/pages/SupermarketsPage";
 import SupermarketPage from "@/pages/SupermarketPage";
 import TimelinePage from "@/pages/TimelinePage";
 import SnapshotsPage from "@/pages/SnapshotsPage";
-import ComparePage from "@/pages/ComparePage";
 import ProductDetailPage from "@/pages/ProductDetailPage";
 import { Skeleton } from "@/components/ui/Skeleton";
 import type { ReactNode } from "react";
@@ -49,10 +50,11 @@ export default function App() {
               }
             >
               <Route path="/" element={<DashboardPage />} />
+              <Route path="/producten" element={<ProductsPage />} />
+              <Route path="/supermarkten" element={<SupermarketsPage />} />
               <Route path="/supermarket/:id" element={<SupermarketPage />} />
               <Route path="/timeline" element={<TimelinePage />} />
               <Route path="/snapshots" element={<SnapshotsPage />} />
-              <Route path="/vergelijk" element={<ComparePage />} />
               <Route path="/product/ref/:retailer/:webshopId" element={<ProductDetailPage />} />
               <Route path="/product/:id" element={<ProductDetailPage />} />
             </Route>

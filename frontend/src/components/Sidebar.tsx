@@ -1,30 +1,16 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { LayoutDashboard, History, Camera, GitCompareArrows, LogOut, Menu } from "lucide-react";
+import { LayoutDashboard, Package, Store, History, Camera, LogOut, Menu, RefreshCw } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
+import { api, type Retailer } from "@/api/client";
 
 const navItems = [
-  {
-    title: "Dashboard",
-    href: "/",
-    icon: LayoutDashboard,
-  },
-  {
-    title: "Tijdlijn",
-    href: "/timeline",
-    icon: History,
-  },
-  {
-    title: "Snapshots",
-    href: "/snapshots",
-    icon: Camera,
-  },
-  {
-    title: "Vergelijken",
-    href: "/vergelijk",
-    icon: GitCompareArrows,
-  },
+  { title: "Dashboard", href: "/", icon: LayoutDashboard },
+  { title: "Producten", href: "/producten", icon: Package },
+  { title: "Supermarkten", href: "/supermarkten", icon: Store },
+  { title: "Tijdlijn", href: "/timeline", icon: History },
+  { title: "Snapshots", href: "/snapshots", icon: Camera },
 ];
 
 export function Sidebar() {
@@ -32,6 +18,27 @@ export function Sidebar() {
   const navigate = useNavigate();
   const { email, logout } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
+  const [retailers, setRetailers] = useState<Retailer[]>([]);
+  const [refreshLoading, setRefreshLoading] = useState(false);
+  const [refreshMessage, setRefreshMessage] = useState<"success" | "error" | null>(null);
+
+  useEffect(() => {
+    api.retailers().then(setRetailers).catch(() => {});
+  }, []);
+
+  const handleRefreshAll = async () => {
+    setRefreshLoading(true);
+    setRefreshMessage(null);
+    try {
+      const data = await api.refreshAll();
+      const failed = Object.entries(data.results).filter(([, v]) => !v.ok);
+      setRefreshMessage(failed.length === 0 ? "success" : "error");
+    } catch {
+      setRefreshMessage("error");
+    } finally {
+      setRefreshLoading(false);
+    }
+  };
 
   const initials = email
     ? email.slice(0, 2).toUpperCase()
@@ -44,13 +51,15 @@ export function Sidebar() {
 
   return (
     <>
-      {/* Mobile Menu Button */}
-      <button
-        className="md:hidden fixed top-4 left-4 z-50 p-2 bg-white rounded-md shadow-md"
-        onClick={() => setIsOpen(!isOpen)}
-      >
-        <Menu className="h-6 w-6 text-slate-700" />
-      </button>
+      {/* Mobile Menu Button - alleen zichtbaar wanneer sidebar dicht is */}
+      {!isOpen && (
+        <button
+          className="md:hidden fixed top-4 left-4 z-50 p-2 bg-white rounded-md shadow-md"
+          onClick={() => setIsOpen(true)}
+        >
+          <Menu className="h-6 w-6 text-slate-700" />
+        </button>
+      )}
 
       {/* Sidebar Container */}
       <div
@@ -60,9 +69,22 @@ export function Sidebar() {
         )}
       >
         <div className="flex flex-col h-full">
-          <div className="p-6 border-b border-slate-800">
-            <h1 className="text-2xl font-bold tracking-tight">Broodradar</h1>
-            <p className="text-xs text-slate-400 mt-1">Supermarket Intelligence</p>
+          <div className="p-6 border-b border-slate-800 flex items-start gap-3">
+            {/* Toggle in header: op mobile zichtbaar wanneer sidebar open, op desktop verborgen */}
+            <button
+              className={cn(
+                "shrink-0 p-2 -m-2 rounded-md text-slate-400 hover:text-white hover:bg-slate-800 transition-colors",
+                "md:hidden"
+              )}
+              onClick={() => setIsOpen(false)}
+              aria-label="Menu sluiten"
+            >
+              <Menu className="h-6 w-6" />
+            </button>
+            <div className="min-w-0">
+              <h1 className="text-2xl font-bold tracking-tight">Broodradar</h1>
+              <p className="text-xs text-slate-400 mt-1">Supermarket Intelligence</p>
+            </div>
           </div>
 
           <nav className="flex-1 px-4 py-6 space-y-2">
@@ -87,6 +109,31 @@ export function Sidebar() {
               );
             })}
           </nav>
+
+          <div className="px-4 py-4 border-t border-slate-800 space-y-3">
+            <div className="flex items-center gap-2 flex-wrap">
+              {retailers.filter((r) => r.active).map((r) => (
+                r.icon ? (
+                  <img key={r.id} src={r.icon} alt="" className="h-6 w-6 object-contain" title={r.name} />
+                ) : null
+              ))}
+            </div>
+            <button
+              type="button"
+              onClick={handleRefreshAll}
+              disabled={refreshLoading}
+              className="flex items-center gap-2 w-full px-4 py-2.5 text-sm font-medium rounded-lg bg-slate-800 text-slate-200 hover:bg-slate-700 disabled:opacity-50 transition-colors"
+            >
+              <RefreshCw className={cn("h-4 w-4", refreshLoading && "animate-spin")} />
+              {refreshLoading ? "Bezig…" : "Ververs alle supermarkten"}
+            </button>
+            {refreshMessage === "success" && (
+              <p className="text-xs text-emerald-400">Snapshots bijgewerkt</p>
+            )}
+            {refreshMessage === "error" && (
+              <p className="text-xs text-red-400">Er ging iets mis</p>
+            )}
+          </div>
 
           <div className="p-4 border-t border-slate-800">
             <div className="flex items-center gap-3 px-4 py-3 mb-2">

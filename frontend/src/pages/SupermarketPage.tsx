@@ -5,8 +5,9 @@ import { Input } from "@/components/ui/Input";
 import { Badge } from "@/components/ui/Badge";
 import { Card, CardContent } from "@/components/ui/Card";
 import { Skeleton } from "@/components/ui/Skeleton";
-import { ArrowLeft, Search, Plus, Download, Loader2 } from "lucide-react";
+import { ArrowLeft, Search, Plus, Download, Loader2, Heart } from "lucide-react";
 import { useState, useMemo, useEffect, useCallback } from "react";
+import { useFollowedProducts } from "@/hooks/useFollowedProducts";
 
 function exportToCsv(products: Product[], filename: string) {
   const headers = ["Naam", "Merk", "Prijs", "Eenheid", "Nutriscore", "Categorie", "Bonus"];
@@ -41,6 +42,7 @@ export default function SupermarketPage() {
   const [brandFilter, setBrandFilter] = useState("all");
   const [nutriFilter, setNutriFilter] = useState("all");
   const [bonusFilter, setBonusFilter] = useState("all");
+  const { isFollowed, toggle } = useFollowedProducts();
 
   useEffect(() => {
     if (!id) return;
@@ -160,8 +162,8 @@ export default function SupermarketPage() {
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <Link to="/" className="text-sm text-slate-500 hover:text-slate-900 flex items-center gap-1 mb-2">
-            <ArrowLeft className="h-4 w-4" /> Terug naar Dashboard
+          <Link to="/supermarkten" className="text-sm text-slate-500 hover:text-slate-900 flex items-center gap-1 mb-2">
+            <ArrowLeft className="h-4 w-4" /> Terug naar Supermarkten
           </Link>
           <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900 flex items-center gap-2">
             {retailer.icon && (
@@ -266,65 +268,79 @@ export default function SupermarketPage() {
             : product.webshopId && id
               ? `/product/ref/${id}/${encodeURIComponent(product.webshopId)}`
               : null;
+          const canFollow = Boolean(product.catalogId);
+          const followed = isFollowed(product.catalogId);
           const cardContent = (
-            <>
-              <div className="flex gap-3">
-                {product.image ? (
-                  <img
-                    src={product.image}
-                    alt={product.name}
-                    className="h-14 w-14 rounded-lg object-cover border border-slate-100 shrink-0"
-                  />
-                ) : (
-                  <div className="h-14 w-14 rounded-lg bg-slate-100 flex items-center justify-center text-slate-400 text-sm shrink-0">
-                    —
-                  </div>
-                )}
-                <div className="min-w-0 flex-1">
-                  <p className="font-medium text-slate-900 line-clamp-2">{product.name}</p>
-                  <p className="text-sm text-slate-500 mt-0.5">
-                    {product.brand && <span>{product.brand}</span>}
-                    {product.brand && product.category && " · "}
-                    {product.category && <span>{product.category}</span>}
-                  </p>
-                  <div className="flex items-center gap-2 mt-2 flex-wrap">
-                    <span className="font-medium text-slate-900">€{(product.price ?? 0).toFixed(2)}</span>
-                    {product.unit && <span className="text-slate-500 text-sm">{product.unit}</span>}
-                    {product.nutriscore && (
-                      <span
-                        className={`inline-flex items-center justify-center w-6 h-6 rounded text-xs font-bold text-white ${
-                          product.nutriscore === 'A' ? 'bg-emerald-600' :
-                          product.nutriscore === 'B' ? 'bg-emerald-400' :
-                          product.nutriscore === 'C' ? 'bg-yellow-400' :
-                          product.nutriscore === 'D' ? 'bg-orange-400' :
-                          'bg-red-500'
-                        }`}
-                      >
-                        {product.nutriscore}
-                      </span>
-                    )}
-                    {product.bonus && (
-                      <Badge className="bg-orange-500 hover:bg-orange-600 text-white border-none">
-                        Bonus
-                      </Badge>
-                    )}
-                  </div>
+            <div className="flex gap-3">
+              {product.image ? (
+                <img
+                  src={product.image}
+                  alt={product.name}
+                  className="h-14 w-14 rounded-lg object-cover border border-slate-100 shrink-0"
+                />
+              ) : (
+                <div className="h-14 w-14 rounded-lg bg-slate-100 flex items-center justify-center text-slate-400 text-sm shrink-0">
+                  —
+                </div>
+              )}
+              <div className="min-w-0 flex-1">
+                <p className="font-medium text-slate-900 line-clamp-2">{product.name}</p>
+                <p className="text-sm text-slate-500 mt-0.5">
+                  {product.brand && <span>{product.brand}</span>}
+                  {product.brand && product.category && " · "}
+                  {product.category && <span>{product.category}</span>}
+                </p>
+                <div className="flex items-center gap-2 mt-2 flex-wrap">
+                  <span className="font-medium text-slate-900">€{(product.price ?? 0).toFixed(2)}</span>
+                  {product.unit && <span className="text-slate-500 text-sm">{product.unit}</span>}
+                  {product.nutriscore && (
+                    <span
+                      className={`inline-flex items-center justify-center w-6 h-6 rounded text-xs font-bold text-white ${
+                        product.nutriscore === 'A' ? 'bg-emerald-600' :
+                        product.nutriscore === 'B' ? 'bg-emerald-400' :
+                        product.nutriscore === 'C' ? 'bg-yellow-400' :
+                        product.nutriscore === 'D' ? 'bg-orange-400' :
+                        'bg-red-500'
+                      }`}
+                    >
+                      {product.nutriscore}
+                    </span>
+                  )}
+                  {product.bonus && (
+                    <Badge className="bg-orange-500 hover:bg-orange-600 text-white border-none">
+                      Bonus
+                    </Badge>
+                  )}
                 </div>
               </div>
-            </>
+            </div>
           );
           return (
             <Card
               key={product.id}
-              className={`border-slate-200 shadow-sm transition-colors ${productUrl ? "hover:border-slate-300 cursor-pointer" : ""}`}
+              className={`border-slate-200 shadow-sm transition-colors relative ${productUrl ? "hover:border-slate-300 cursor-pointer" : ""}`}
             >
               <CardContent className="p-4">
+                {canFollow && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      toggle(product.catalogId);
+                    }}
+                    className="absolute top-3 right-3 p-1.5 rounded-md text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors"
+                    aria-label={followed ? "Niet meer volgen" : "Volgen"}
+                  >
+                    <Heart className={`h-5 w-5 ${followed ? "fill-red-500 text-red-500" : ""}`} />
+                  </button>
+                )}
                 {productUrl ? (
-                  <Link to={productUrl} className="block">
+                  <Link to={productUrl} className="block pr-8">
                     {cardContent}
                   </Link>
                 ) : (
-                  cardContent
+                  <div className="pr-8">{cardContent}</div>
                 )}
               </CardContent>
             </Card>

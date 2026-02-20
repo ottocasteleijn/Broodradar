@@ -266,6 +266,24 @@ def api_retailers():
     return jsonify(result)
 
 
+@app.route("/api/retailers/refresh-all", methods=["POST"])
+@api_login_required
+def api_refresh_all():
+    """Handmatig snapshots maken voor alle actieve retailers."""
+    results = {}
+    for slug, info in RETAILERS.items():
+        if not info["active"]:
+            continue
+        try:
+            fetcher = get_fetcher(slug)
+            products = fetcher.fetch_all_products()
+            snapshot_id = database.create_snapshot(products, retailer=slug)
+            results[slug] = {"ok": True, "product_count": len(products), "snapshot_id": snapshot_id}
+        except Exception as e:
+            results[slug] = {"ok": False, "error": str(e)}
+    return jsonify({"results": results})
+
+
 @app.route("/api/retailers/<slug>/products")
 @api_login_required
 def api_retailer_products(slug):

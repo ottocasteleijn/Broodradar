@@ -4,7 +4,8 @@ import { api, type CatalogProduct, type ProductHistoryEntry, type Retailer } fro
 import { Card, CardContent } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { Skeleton } from "@/components/ui/Skeleton";
-import { ArrowLeft, Package, Calendar } from "lucide-react";
+import { ArrowLeft, Package, Calendar, Heart } from "lucide-react";
+import { useFollowedProducts } from "@/hooks/useFollowedProducts";
 
 const EVENT_LABELS: Record<string, string> = {
   first_seen: "Eerste keer gezien",
@@ -92,6 +93,7 @@ export default function ProductDetailPage() {
   const [retailers, setRetailers] = useState<Retailer[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const { isFollowed, toggle } = useFollowedProducts();
 
   useEffect(() => {
     const byRef = retailerParam != null && webshopIdParam != null;
@@ -211,9 +213,22 @@ export default function ProductDetailPage() {
               )}
             </div>
             <div className="min-w-0 flex-1">
-              <h2 className="text-lg sm:text-xl font-semibold text-slate-900 break-words">
-                {product.title || "—"}
-              </h2>
+              <div className="flex flex-wrap items-start justify-between gap-2">
+                <h2 className="text-lg sm:text-xl font-semibold text-slate-900 break-words">
+                  {product.title || "—"}
+                </h2>
+                <button
+                  type="button"
+                  onClick={() => toggle(product.id)}
+                  className={isFollowed(product.id)
+                    ? "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium bg-red-50 text-red-600 hover:bg-red-100 transition-colors"
+                    : "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium border border-slate-200 text-slate-700 hover:bg-slate-50 transition-colors"
+                  }
+                >
+                  <Heart className={`h-4 w-4 ${isFollowed(product.id) ? "fill-red-500" : ""}`} />
+                  {isFollowed(product.id) ? "Volgend" : "Volgen"}
+                </button>
+              </div>
               {product.brand && (
                 <p className="text-slate-600 mt-1 text-sm sm:text-base">{product.brand}</p>
               )}

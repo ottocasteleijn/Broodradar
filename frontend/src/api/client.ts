@@ -228,6 +228,17 @@ export const api = {
     return result;
   },
 
+  refreshAll: async (): Promise<{ results: Record<string, { ok: boolean; product_count?: number; snapshot_id?: string; error?: string }> }> => {
+    const data = await request<{ results: Record<string, { ok: boolean; product_count?: number; snapshot_id?: string; error?: string }> }>(
+      '/api/retailers/refresh-all',
+      { method: 'POST' },
+    );
+    invalidateCache('retailerProducts');
+    invalidateCache('snapshots');
+    invalidateCache('retailers');
+    return data;
+  },
+
   snapshots: async (retailer?: string): Promise<Snapshot[]> => {
     const key = `snapshots:${retailer ?? 'all'}`;
     const raw = await cached(key, CACHE_TTL.snapshots, async () => {
