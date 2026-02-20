@@ -375,6 +375,16 @@ export default function ProductDetailPage() {
                   {[product.main_category, product.sub_category].filter(Boolean).join(" · ")}
                 </p>
               )}
+              {product.ingredients && (
+                <details className="mt-3 group">
+                  <summary className="text-sm font-medium text-slate-700 cursor-pointer select-none hover:text-slate-900 transition-colors">
+                    Ingrediënten
+                  </summary>
+                  <p className="text-slate-500 text-sm mt-1.5 leading-relaxed break-words">
+                    {product.ingredients}
+                  </p>
+                </details>
+              )}
               <div className="flex flex-col sm:flex-row sm:flex-wrap gap-2 sm:gap-3 mt-4 text-sm text-slate-500">
                 <span className="flex items-center gap-1 min-w-0">
                   <Calendar className="h-4 w-4 shrink-0" />
