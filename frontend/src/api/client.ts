@@ -13,6 +13,7 @@ export interface Product {
   id: string;
   supermarketId: string;
   catalogId: string | null;
+  webshopId: string;
   image: string;
   name: string;
   brand: string;
@@ -147,6 +148,7 @@ function mapProduct(p: Record<string, unknown>): Product {
     id: toStr(p.id),
     supermarketId: toStr(p.retailer),
     catalogId: (p.catalog_id as string) ?? null,
+    webshopId: toStr(p.webshop_id),
     image: toStr(p.image_url),
     name: toStr(p.title),
     brand: toStr(p.brand),
@@ -210,6 +212,9 @@ export const api = {
     request<CompareResult>(`/api/snapshots/compare?old=${oldId}&new=${newId}`),
 
   product: (id: string) => request<CatalogProduct>(`/api/products/${id}`),
+
+  productByRef: (retailer: string, webshopId: string) =>
+    request<CatalogProduct>(`/api/products/by-ref?retailer=${encodeURIComponent(retailer)}&webshop_id=${encodeURIComponent(webshopId)}`),
 
   productHistory: (id: string, limit?: number) => {
     const params = limit != null ? `?limit=${limit}` : '';

@@ -43,6 +43,7 @@ export default function App() {
               <Route path="/timeline" element={<TimelinePage />} />
               <Route path="/snapshots" element={<SnapshotsPage />} />
               <Route path="/vergelijk" element={<ComparePage />} />
+              <Route path="/product/ref/:retailer/:webshopId" element={<ProductDetailPage />} />
               <Route path="/product/:id" element={<ProductDetailPage />} />
             </Route>
           </Routes>

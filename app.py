@@ -354,6 +354,23 @@ def api_timeline():
     return jsonify(events)
 
 
+@app.route("/api/products/by-ref")
+@api_login_required
+def api_product_by_ref():
+    retailer = request.args.get("retailer", "").strip()
+    webshop_id = request.args.get("webshop_id", "").strip()
+    if not retailer or not webshop_id:
+        return jsonify({"error": "Geef retailer en webshop_id mee."}), 400
+    if retailer not in RETAILERS:
+        return jsonify({"error": "Retailer niet gevonden"}), 404
+    product = database.get_product_by_webshop_id(retailer, webshop_id)
+    if not product:
+        product = database.ensure_catalog_entry(retailer, webshop_id)
+    if not product:
+        return jsonify({"error": "Product niet gevonden"}), 404
+    return jsonify(product)
+
+
 @app.route("/api/products/<product_id>")
 @api_login_required
 def api_product(product_id):

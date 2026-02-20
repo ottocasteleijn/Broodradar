@@ -494,3 +494,33 @@ def get_catalog_ids_for_webshop_ids(retailer, webshop_ids):
         return {row["webshop_id"]: row["id"] for row in (r.data or [])}
     except Exception:
         return {}
+
+
+def ensure_catalog_entry(retailer, webshop_id):
+    """Haal catalog-product op; als het nog niet bestaat, maak aan uit laatste snapshot en retourneer. None als product niet in laatste snapshot zit."""
+    if not _check_product_catalog():
+        return None
+    existing = get_product_by_webshop_id(retailer, webshop_id)
+    if existing:
+        return existing
+    products = get_latest_snapshot_products(retailer)
+    row = next((p for p in products if p.get("webshop_id") == webshop_id), None)
+    if not row:
+        return None
+    sb = _get_client()
+    catalog_row = _catalog_row_from_snapshot_product(row)
+    ins = sb.table("product_catalog").insert(catalog_row).execute()
+    if not ins.data:
+        return None
+    catalog_id = ins.data[0]["id"]
+    snapshots = get_snapshots(retailer)
+    if snapshots:
+        snapshot_id = snapshots[0]["id"]
+        sb.table("product_history").insert({
+            "product_id": catalog_id,
+            "snapshot_id": snapshot_id,
+            "event_type": "first_seen",
+            "changes": {},
+            "price_at_snapshot": row.get("price"),
+        }).execute()
+    return ins.data[0]

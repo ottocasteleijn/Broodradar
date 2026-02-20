@@ -207,31 +207,30 @@ export default function SupermarketPage() {
         </CardContent>
       </Card>
 
-      {/* Mobile: product cards */}
-      <div className="md:hidden space-y-3">
-        {filteredProducts.map((product) => (
-          <Card key={product.id} className="border-slate-200 shadow-sm">
-            <CardContent className="p-4">
+      {/* Product cards (alle schermen) */}
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        {filteredProducts.map((product) => {
+          const productUrl = product.catalogId
+            ? `/product/${product.catalogId}`
+            : product.webshopId && id
+              ? `/product/ref/${id}/${encodeURIComponent(product.webshopId)}`
+              : null;
+          const cardContent = (
+            <>
               <div className="flex gap-3">
                 {product.image ? (
                   <img
                     src={product.image}
                     alt={product.name}
-                    className="h-12 w-12 rounded-md object-cover border border-slate-100 shrink-0"
+                    className="h-14 w-14 rounded-lg object-cover border border-slate-100 shrink-0"
                   />
                 ) : (
-                  <div className="h-12 w-12 rounded-md bg-slate-100 flex items-center justify-center text-slate-400 text-xs shrink-0">
+                  <div className="h-14 w-14 rounded-lg bg-slate-100 flex items-center justify-center text-slate-400 text-sm shrink-0">
                     —
                   </div>
                 )}
                 <div className="min-w-0 flex-1">
-                  {product.catalogId ? (
-                    <Link to={`/product/${product.catalogId}`} className="font-medium text-slate-900 truncate hover:underline block">
-                      {product.name}
-                    </Link>
-                  ) : (
-                    <p className="font-medium text-slate-900 truncate">{product.name}</p>
-                  )}
+                  <p className="font-medium text-slate-900 line-clamp-2">{product.name}</p>
                   <p className="text-sm text-slate-500 mt-0.5">
                     {product.brand && <span>{product.brand}</span>}
                     {product.brand && product.category && " · "}
@@ -261,92 +260,28 @@ export default function SupermarketPage() {
                   </div>
                 </div>
               </div>
-            </CardContent>
-          </Card>
-        ))}
-        <div className="px-4 py-3 border-t border-slate-200 bg-slate-50 text-xs text-slate-500 rounded-b-xl">
-          Toont {filteredProducts.length} producten
-        </div>
+            </>
+          );
+          return (
+            <Card
+              key={product.id}
+              className={`border-slate-200 shadow-sm transition-colors ${productUrl ? "hover:border-slate-300 cursor-pointer" : ""}`}
+            >
+              <CardContent className="p-4">
+                {productUrl ? (
+                  <Link to={productUrl} className="block">
+                    {cardContent}
+                  </Link>
+                ) : (
+                  cardContent
+                )}
+              </CardContent>
+            </Card>
+          );
+        })}
       </div>
-
-      {/* Desktop: table */}
-      <div className="hidden md:block rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm text-left">
-            <thead className="bg-slate-50 text-slate-500 font-medium border-b border-slate-200">
-              <tr>
-                <th className="px-6 py-4">Product</th>
-                <th className="px-6 py-4">Merk</th>
-                <th className="px-6 py-4">Prijs</th>
-                <th className="px-6 py-4">Eenheid</th>
-                <th className="px-6 py-4">Nutriscore</th>
-                <th className="px-6 py-4">Categorie</th>
-                <th className="px-6 py-4 text-right">Status</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {filteredProducts.map((product) => (
-                <tr key={product.id} className="hover:bg-slate-50/50 transition-colors">
-                  <td className="px-6 py-4">
-                    <div className="flex items-center gap-4">
-                      {product.image ? (
-                        <img
-                          src={product.image}
-                          alt={product.name}
-                          className="h-10 w-10 rounded-md object-cover border border-slate-100"
-                        />
-                      ) : (
-                        <div className="h-10 w-10 rounded-md bg-slate-100 flex items-center justify-center text-slate-400 text-xs">
-                          —
-                        </div>
-                      )}
-                      {product.catalogId ? (
-                        <Link to={`/product/${product.catalogId}`} className="font-medium text-slate-900 hover:underline">
-                          {product.name}
-                        </Link>
-                      ) : (
-                        <span className="font-medium text-slate-900">{product.name}</span>
-                      )}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 text-slate-600">{product.brand}</td>
-                  <td className="px-6 py-4 font-medium text-slate-900">€{(product.price ?? 0).toFixed(2)}</td>
-                  <td className="px-6 py-4 text-slate-500">{product.unit}</td>
-                  <td className="px-6 py-4">
-                    {product.nutriscore && (
-                      <span
-                        className={`inline-flex items-center justify-center w-6 h-6 rounded text-xs font-bold text-white ${
-                          product.nutriscore === 'A' ? 'bg-emerald-600' :
-                          product.nutriscore === 'B' ? 'bg-emerald-400' :
-                          product.nutriscore === 'C' ? 'bg-yellow-400' :
-                          product.nutriscore === 'D' ? 'bg-orange-400' :
-                          'bg-red-500'
-                        }`}
-                      >
-                        {product.nutriscore}
-                      </span>
-                    )}
-                  </td>
-                  <td className="px-6 py-4 text-slate-600">{product.category}</td>
-                  <td className="px-6 py-4 text-right">
-                    {product.bonus && (
-                      <Badge className="bg-orange-500 hover:bg-orange-600 text-white border-none">
-                        Bonus
-                      </Badge>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-        <div className="px-6 py-4 border-t border-slate-200 bg-slate-50 text-xs text-slate-500 flex justify-between items-center">
-          <span>Toont {filteredProducts.length} producten</span>
-          <div className="flex gap-2">
-            <Button variant="outline" size="sm" disabled>Vorige</Button>
-            <Button variant="outline" size="sm" disabled>Volgende</Button>
-          </div>
-        </div>
+      <div className="text-sm text-slate-500">
+        Toont {filteredProducts.length} producten
       </div>
     </div>
   );

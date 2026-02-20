@@ -81,7 +81,11 @@ function formatDate(iso: string): string {
 }
 
 export default function ProductDetailPage() {
-  const { id } = useParams<{ id: string }>();
+  const { id, retailer: retailerParam, webshopId: webshopIdParam } = useParams<{
+    id?: string;
+    retailer?: string;
+    webshopId?: string;
+  }>();
   const [product, setProduct] = useState<CatalogProduct | null>(null);
   const [history, setHistory] = useState<ProductHistoryEntry[]>([]);
   const [retailers, setRetailers] = useState<Retailer[]>([]);
@@ -89,14 +93,25 @@ export default function ProductDetailPage() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!id) return;
+    const byRef = retailerParam != null && webshopIdParam != null;
+    const refRetailer = byRef ? retailerParam : null;
+    const refWebshopId = byRef ? decodeURIComponent(webshopIdParam) : null;
+    if (!id && !byRef) return;
     setLoading(true);
     setError(null);
-    Promise.all([
-      api.product(id),
-      api.productHistory(id, 50),
-      api.retailers(),
-    ])
+    const load = byRef && refRetailer && refWebshopId
+      ? api.productByRef(refRetailer, refWebshopId).then((p) => [p, p.id] as const)
+      : id
+        ? api.product(id).then((p) => [p, p.id] as const)
+        : Promise.reject(new Error("Geen id"));
+    load
+      .then(([p, catalogId]) =>
+        Promise.all([
+          Promise.resolve(p),
+          api.productHistory(catalogId, 50),
+          api.retailers(),
+        ])
+      )
       .then(([p, h, r]) => {
         setProduct(p);
         setHistory(h);
@@ -104,7 +119,7 @@ export default function ProductDetailPage() {
       })
       .catch(() => setError("Product niet gevonden"))
       .finally(() => setLoading(false));
-  }, [id]);
+  }, [id, retailerParam, webshopIdParam]);
 
   if (loading) {
     return <div className="text-slate-500">Product laden...</div>;
