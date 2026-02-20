@@ -57,6 +57,15 @@ export interface ProductHistoryEntry {
   created_at: string;
 }
 
+export interface ProductAtSnapshot {
+  product: CatalogProduct;
+  snapshot: { id: string; created_at: string | null; retailer: string };
+  history_entry: { event_type: string; changes: Record<string, unknown>; price_at_snapshot: number | null };
+  adjacent: { newer_snapshot_id: string | null; older_snapshot_id: string | null };
+  version_index: number | null;
+  version_count: number;
+}
+
 export interface Snapshot {
   id: string;
   supermarketId: string;
@@ -116,6 +125,7 @@ const CACHE_TTL = {
   compare: 2 * 60 * 1000,          // 2 min
   product: 2 * 60 * 1000,          // 2 min
   productHistory: 2 * 60 * 1000,   // 2 min
+  productAtSnapshot: 2 * 60 * 1000, // 2 min
 } as const;
 
 const cache = new Map<string, { data: unknown; expiresAt: number }>();
@@ -301,6 +311,13 @@ export const api = {
       const params = limit != null ? `?limit=${limit}` : '';
       return request<ProductHistoryEntry[]>(`/api/products/${id}/history${params}`);
     });
+  },
+
+  productAtSnapshot: (productId: string, snapshotId: string) => {
+    const key = `productAtSnapshot:${productId}:${snapshotId}`;
+    return cached(key, CACHE_TTL.productAtSnapshot, () =>
+      request<ProductAtSnapshot>(`/api/products/${productId}/at-snapshot/${snapshotId}`)
+    );
   },
 
   prefetchProducts: async () => {

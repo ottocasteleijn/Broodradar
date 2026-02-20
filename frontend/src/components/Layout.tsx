@@ -1,7 +1,13 @@
-import { Sidebar } from "./Sidebar";
+import { useEffect } from "react";
 import { Outlet } from "react-router-dom";
+import { api } from "@/api/client";
+import { Sidebar } from "./Sidebar";
 
 export default function Layout() {
+  useEffect(() => {
+    api.prefetchProducts();
+  }, []);
+
   return (
     <div className="min-h-screen bg-slate-50">
       <Sidebar />

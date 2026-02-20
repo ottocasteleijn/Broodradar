@@ -1,10 +1,10 @@
-import { useParams, Link } from "react-router-dom";
+import { useParams, Link, useNavigate } from "react-router-dom";
 import { useEffect, useState, useMemo } from "react";
-import { api, type CatalogProduct, type ProductHistoryEntry, type Retailer } from "@/api/client";
+import { api, type CatalogProduct, type ProductHistoryEntry, type ProductAtSnapshot, type Retailer } from "@/api/client";
 import { Card, CardContent } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { Skeleton } from "@/components/ui/Skeleton";
-import { ArrowLeft, Package, Calendar, Heart } from "lucide-react";
+import { ArrowLeft, Package, Calendar, Heart, ChevronLeft, ChevronRight } from "lucide-react";
 import { useFollowedProducts } from "@/hooks/useFollowedProducts";
 
 const EVENT_LABELS: Record<string, string> = {
@@ -83,17 +83,24 @@ function formatDate(iso: string): string {
 }
 
 export default function ProductDetailPage() {
-  const { id, retailer: retailerParam, webshopId: webshopIdParam } = useParams<{
+  const { id, snapshotId: snapshotIdParam, retailer: retailerParam, webshopId: webshopIdParam } = useParams<{
     id?: string;
+    snapshotId?: string;
     retailer?: string;
     webshopId?: string;
   }>();
+  const navigate = useNavigate();
   const [product, setProduct] = useState<CatalogProduct | null>(null);
   const [history, setHistory] = useState<ProductHistoryEntry[]>([]);
   const [retailers, setRetailers] = useState<Retailer[]>([]);
+  const [versionMeta, setVersionMeta] = useState<ProductAtSnapshot["snapshot"] | null>(null);
+  const [adjacent, setAdjacent] = useState<ProductAtSnapshot["adjacent"] | null>(null);
+  const [versionIndex, setVersionIndex] = useState<number | null>(null);
+  const [versionCount, setVersionCount] = useState<number>(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const { isFollowed, toggle } = useFollowedProducts();
+  const isVersionMode = Boolean(snapshotIdParam && id);
 
   useEffect(() => {
     const byRef = retailerParam != null && webshopIdParam != null;
@@ -102,15 +109,43 @@ export default function ProductDetailPage() {
     if (!id && !byRef) return;
     setLoading(true);
     setError(null);
-    const load = byRef && refRetailer && refWebshopId
-      ? api.productByRef(refRetailer, refWebshopId).then((p) => [p, p.id] as const)
+    setVersionMeta(null);
+    setAdjacent(null);
+    setVersionIndex(null);
+    setVersionCount(0);
+
+    const loadCatalogId = byRef && refRetailer && refWebshopId
+      ? api.productByRef(refRetailer, refWebshopId).then((p) => p.id)
       : id
-        ? api.product(id).then((p) => [p, p.id] as const)
-        : Promise.reject(new Error("Geen id"));
-    load
-      .then(([p, catalogId]) =>
+        ? Promise.resolve(id)
+        : Promise.reject<string>(new Error("Geen id"));
+
+    if (isVersionMode && id && snapshotIdParam) {
+      Promise.all([
+        api.productAtSnapshot(id, snapshotIdParam),
+        api.retailers(),
+      ])
+        .then(([data, r]) => {
+          setProduct(data.product);
+          setVersionMeta(data.snapshot);
+          setAdjacent(data.adjacent);
+          setVersionIndex(data.version_index);
+          setVersionCount(data.version_count);
+          setRetailers(r);
+          return api.productHistory(id, 50);
+        })
+        .then((h) => setHistory(h))
+        .catch(() => setError("Product niet gevonden in dit snapshot"))
+        .finally(() => setLoading(false));
+      return;
+    }
+
+    loadCatalogId
+      .then((catalogId) =>
         Promise.all([
-          Promise.resolve(p),
+          byRef && refRetailer && refWebshopId
+            ? api.productByRef(refRetailer, refWebshopId)
+            : api.product(catalogId),
           api.productHistory(catalogId, 50),
           api.retailers(),
         ])
@@ -122,7 +157,7 @@ export default function ProductDetailPage() {
       })
       .catch(() => setError("Product niet gevonden"))
       .finally(() => setLoading(false));
-  }, [id, retailerParam, webshopIdParam]);
+  }, [id, snapshotIdParam, retailerParam, webshopIdParam, isVersionMode]);
 
   if (loading) {
     return (
@@ -214,6 +249,55 @@ export default function ProductDetailPage() {
         </h1>
       </div>
 
+      {isVersionMode && versionMeta && (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          <p className="mb-2">
+            Je bekijkt dit product zoals het was op {versionMeta.created_at ? formatDate(versionMeta.created_at) : "dit moment"}.
+          </p>
+          <div className="flex flex-wrap items-center gap-3">
+            <Link
+              to={`/product/${product.id}`}
+              className="font-medium text-amber-800 hover:underline"
+            >
+              Bekijk huidige versie →
+            </Link>
+            {(adjacent?.newer_snapshot_id != null || adjacent?.older_snapshot_id != null) && (
+              <span className="flex items-center gap-2 text-amber-700">
+                {adjacent?.newer_snapshot_id != null ? (
+                  <button
+                    type="button"
+                    onClick={() => navigate(`/product/${product.id}/versie/${adjacent.newer_snapshot_id}`)}
+                    className="inline-flex items-center gap-0.5 rounded p-1 hover:bg-amber-100"
+                    title="Nieuwere versie"
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </button>
+                ) : (
+                  <span className="w-6" />
+                )}
+                {versionIndex != null && versionCount > 0 && (
+                  <span className="tabular-nums">
+                    Versie {versionIndex} van {versionCount}
+                  </span>
+                )}
+                {adjacent?.older_snapshot_id != null ? (
+                  <button
+                    type="button"
+                    onClick={() => navigate(`/product/${product.id}/versie/${adjacent.older_snapshot_id}`)}
+                    className="inline-flex items-center gap-0.5 rounded p-1 hover:bg-amber-100"
+                    title="Oudere versie"
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </button>
+                ) : (
+                  <span className="w-6" />
+                )}
+              </span>
+            )}
+          </div>
+        </div>
+      )}
+
       <Card className="overflow-hidden">
         <CardContent className="p-0">
           <div className="flex flex-col sm:flex-row gap-4 sm:gap-6 p-4 sm:p-6">
@@ -235,17 +319,19 @@ export default function ProductDetailPage() {
                 <h2 className="text-lg sm:text-xl font-semibold text-slate-900 break-words">
                   {product.title || "—"}
                 </h2>
-                <button
-                  type="button"
-                  onClick={() => toggle(product.id)}
-                  className={isFollowed(product.id)
-                    ? "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium bg-red-50 text-red-600 hover:bg-red-100 transition-colors"
-                    : "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium border border-slate-200 text-slate-700 hover:bg-slate-50 transition-colors"
-                  }
-                >
-                  <Heart className={`h-4 w-4 ${isFollowed(product.id) ? "fill-red-500" : ""}`} />
-                  {isFollowed(product.id) ? "Volgend" : "Volgen"}
-                </button>
+                {!isVersionMode && (
+                  <button
+                    type="button"
+                    onClick={() => toggle(product.id)}
+                    className={isFollowed(product.id)
+                      ? "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium bg-red-50 text-red-600 hover:bg-red-100 transition-colors"
+                      : "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium border border-slate-200 text-slate-700 hover:bg-slate-50 transition-colors"
+                    }
+                  >
+                    <Heart className={`h-4 w-4 ${isFollowed(product.id) ? "fill-red-500" : ""}`} />
+                    {isFollowed(product.id) ? "Volgend" : "Volgen"}
+                  </button>
+                )}
               </div>
               {product.brand && (
                 <p className="text-slate-600 mt-1 text-sm sm:text-base">{product.brand}</p>

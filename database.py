@@ -476,6 +476,102 @@ def get_product_history(product_id, limit=50):
         return []
 
 
+def get_product_at_snapshot(product_id, snapshot_id):
+    """
+    Haal het product op zoals het was in een bepaald snapshot.
+    Retourneert None als het product niet in dat snapshot zit.
+    Anders: dict met product (catalog-vorm), snapshot, history_entry, adjacent (newer/older snapshot_id).
+    """
+    if not _check_product_catalog():
+        return None
+    catalog = get_product(product_id)
+    if not catalog:
+        return None
+    retailer = catalog.get("retailer") or "ah"
+    webshop_id = catalog.get("webshop_id") or ""
+    if not webshop_id:
+        return None
+
+    sb = _get_client()
+    # Product row in dit snapshot (snapshot is per retailer, dus snapshot_id + webshop_id is voldoende)
+    try:
+        r = (
+            sb.table("products")
+            .select("*")
+            .eq("snapshot_id", snapshot_id)
+            .eq("webshop_id", webshop_id)
+            .limit(1)
+            .execute()
+        )
+        snapshot_row = r.data[0] if r.data else None
+    except Exception:
+        snapshot_row = None
+
+    if not snapshot_row:
+        return None
+
+    # Snapshot-metadata
+    snap_list = sb.table("snapshots").select("*").eq("id", snapshot_id).limit(1).execute().data
+    snapshot_meta = snap_list[0] if snap_list else {"id": snapshot_id, "created_at": None, "retailer": retailer}
+
+    # History entry voor dit snapshot
+    history = get_product_history(product_id, limit=200)
+    history_entry = next((h for h in history if h.get("snapshot_id") == snapshot_id), None)
+    if not history_entry:
+        history_entry = {
+            "event_type": "unchanged",
+            "changes": {},
+            "price_at_snapshot": snapshot_row.get("price"),
+        }
+
+    # Adjacent: nieuwste eerst, dus index-1 = newer (recenter), index+1 = older
+    current_idx = next((i for i, h in enumerate(history) if h.get("snapshot_id") == snapshot_id), -1)
+    newer_snapshot_id = history[current_idx - 1]["snapshot_id"] if current_idx > 0 else None
+    older_snapshot_id = history[current_idx + 1]["snapshot_id"] if current_idx >= 0 and current_idx + 1 < len(history) else None
+
+    # Catalog-vorm voor frontend (id = catalog id, rest uit snapshot + catalog voor first/last seen)
+    product_payload = {
+        "id": product_id,
+        "retailer": retailer,
+        "webshop_id": webshop_id,
+        "title": snapshot_row.get("title"),
+        "brand": snapshot_row.get("brand"),
+        "price": snapshot_row.get("price"),
+        "sales_unit_size": snapshot_row.get("sales_unit_size"),
+        "unit_price_description": snapshot_row.get("unit_price_description"),
+        "nutriscore": snapshot_row.get("nutriscore"),
+        "main_category": snapshot_row.get("main_category"),
+        "sub_category": snapshot_row.get("sub_category"),
+        "image_url": snapshot_row.get("image_url"),
+        "is_bonus": bool(snapshot_row.get("is_bonus", False)),
+        "is_available": True,
+        "first_seen_at": catalog.get("first_seen_at") or "",
+        "last_seen_at": catalog.get("last_seen_at") or "",
+        "created_at": catalog.get("created_at") or "",
+        "updated_at": catalog.get("updated_at") or "",
+    }
+
+    return {
+        "product": product_payload,
+        "snapshot": {
+            "id": snapshot_meta.get("id"),
+            "created_at": snapshot_meta.get("created_at"),
+            "retailer": snapshot_meta.get("retailer", retailer),
+        },
+        "history_entry": {
+            "event_type": history_entry.get("event_type"),
+            "changes": history_entry.get("changes") or {},
+            "price_at_snapshot": history_entry.get("price_at_snapshot"),
+        },
+        "adjacent": {
+            "newer_snapshot_id": newer_snapshot_id,
+            "older_snapshot_id": older_snapshot_id,
+        },
+        "version_index": current_idx + 1 if current_idx >= 0 else None,
+        "version_count": len(history),
+    }
+
+
 def get_product_by_webshop_id(retailer, webshop_id):
     """Lookup product_catalog op basis van retailer en webshop_id. Retourneert None als niet gevonden."""
     if not _check_product_catalog():

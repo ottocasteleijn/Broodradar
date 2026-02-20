@@ -408,6 +408,15 @@ def api_product_history(product_id):
     return jsonify(history)
 
 
+@app.route("/api/products/<product_id>/at-snapshot/<snapshot_id>")
+@api_login_required
+def api_product_at_snapshot(product_id, snapshot_id):
+    result = database.get_product_at_snapshot(product_id, snapshot_id)
+    if not result:
+        return jsonify({"error": "Product niet gevonden in dit snapshot"}), 404
+    return jsonify(result)
+
+
 @app.errorhandler(404)
 def fallback_to_frontend(e):
     """Serve the React frontend for any route not matched by Flask (client-side routing)."""
