@@ -1,4 +1,3 @@
-import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card, CardContent } from "@/components/ui/Card";
 import { Skeleton } from "@/components/ui/Skeleton";
@@ -150,14 +149,19 @@ export default function SnapshotsPage() {
         <>
           {/* Mobile: snapshot cards */}
           <div className="md:hidden space-y-3">
-            {snapshots.map((snap) => (
+            {snapshots.map((snap) => {
+              const retailer = retailers.find((r) => r.id === snap.supermarketId);
+              return (
               <Card key={snap.id} className="border-slate-200 shadow-sm">
                 <CardContent className="p-4">
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
-                      <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-200 border-none mb-2">
-                        {getRetailerName(snap.supermarketId)}
-                      </Badge>
+                      <div className="flex items-center gap-2 mb-2 text-slate-700">
+                        {retailer?.icon && (
+                          <img src={retailer.icon} alt="" className="h-5 w-5 shrink-0 object-contain" />
+                        )}
+                        <span>{getRetailerName(snap.supermarketId)}</span>
+                      </div>
                       <p className="text-sm text-slate-600">
                         {new Date(snap.date).toLocaleDateString('nl-NL', {
                           year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
@@ -174,7 +178,8 @@ export default function SnapshotsPage() {
                   </div>
                 </CardContent>
               </Card>
-            ))}
+            );
+            })}
           </div>
 
           {/* Desktop: table */}
@@ -191,12 +196,17 @@ export default function SnapshotsPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {snapshots.map((snap) => (
+                  {snapshots.map((snap) => {
+                    const retailer = retailers.find((r) => r.id === snap.supermarketId);
+                    return (
                     <tr key={snap.id} className="hover:bg-slate-50/50 transition-colors">
                       <td className="px-6 py-4 font-medium text-slate-900">
-                        <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-200 border-none">
-                          {getRetailerName(snap.supermarketId)}
-                        </Badge>
+                        <div className="flex items-center gap-2">
+                          {retailer?.icon && (
+                            <img src={retailer.icon} alt="" className="h-5 w-5 shrink-0 object-contain" />
+                          )}
+                          <span>{getRetailerName(snap.supermarketId)}</span>
+                        </div>
                       </td>
                       <td className="px-6 py-4 text-slate-600">
                         {new Date(snap.date).toLocaleDateString('nl-NL', {
@@ -213,7 +223,8 @@ export default function SnapshotsPage() {
                         </Button>
                       </td>
                     </tr>
-                  ))}
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
