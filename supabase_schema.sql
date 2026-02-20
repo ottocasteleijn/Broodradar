@@ -33,7 +33,8 @@ create table if not exists products (
   image_url text,
   available_online boolean default true,
   order_availability_status text,
-  raw_json jsonb
+  raw_json jsonb,
+  ingredients text
 );
 
 -- Tabel: timeline_events
@@ -62,6 +63,7 @@ create table if not exists product_catalog (
   main_category text,
   sub_category text,
   image_url text,
+  ingredients text,
   is_bonus boolean default false,
   is_available boolean default true,
   first_seen_at timestamptz default now(),

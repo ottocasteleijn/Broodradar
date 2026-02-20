@@ -1,9 +1,12 @@
 """Jumbo product fetcher via de Jumbo mobiele API."""
 import requests
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from urllib.parse import urlencode
 
 API_BASE = "https://mobileapi.jumbo.com"
 SEARCH_URL = f"{API_BASE}/v17/search"
+PRODUCT_DETAIL_URL = f"{API_BASE}/v17/products"
+MAX_WORKERS = 10
 
 HEADERS = {
     "User-Agent": "Jumbo/9.5.1 (Android 12)",
@@ -104,3 +107,46 @@ def fetch_all_products(query="brood"):
             break
 
     return all_products
+
+
+def _fetch_one_ingredients(product_id):
+    """Haal ingrediënten op voor één product. Retourneert (product_id, ingredient_text)."""
+    if not product_id:
+        return (product_id, None)
+    try:
+        data = _get(f"{PRODUCT_DETAIL_URL}/{product_id}")
+    except Exception:
+        return (str(product_id), None)
+    product_node = data.get("product", {}).get("data", data.get("product", data))
+    if not isinstance(product_node, dict):
+        return (str(product_id), None)
+    ingredient_info = product_node.get("ingredientInfo")
+    if not isinstance(ingredient_info, list) or not ingredient_info:
+        return (str(product_id), None)
+    first = ingredient_info[0]
+    ingredients_list = first.get("ingredients")
+    if not isinstance(ingredients_list, list):
+        return (str(product_id), None)
+    names = []
+    for item in ingredients_list:
+        if isinstance(item, dict) and item.get("name"):
+            names.append(str(item["name"]).strip())
+    text = ", ".join(names) if names else None
+    return (str(product_id), text)
+
+
+def fetch_ingredients(product_ids):
+    """
+    Haal ingrediënten op voor de opgegeven product_ids via concurrente REST-calls.
+    Retourneert dict[product_id_str, ingredient_text].
+    """
+    if not product_ids:
+        return {}
+    result = {}
+    with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
+        futures = {executor.submit(_fetch_one_ingredients, pid): pid for pid in product_ids}
+        for future in as_completed(futures):
+            pid, text = future.result()
+            if pid and text is not None:
+                result[pid] = text
+    return result

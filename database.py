@@ -72,6 +72,7 @@ def _catalog_row_from_snapshot_product(r):
         "main_category": r.get("main_category"),
         "sub_category": r.get("sub_category"),
         "image_url": r.get("image_url"),
+        "ingredients": r.get("ingredients"),
         "is_bonus": bool(r.get("is_bonus", False)),
         "is_available": True,
     }
@@ -100,14 +101,21 @@ def _detect_changes(old_row, new_data):
     if old_bonus != new_bonus:
         changes["bonus"] = {"old": old_bonus, "new": new_bonus}
 
+    old_ingredients = (old_row.get("ingredients") or "").strip()
+    new_ingredients = (new_data.get("ingredients") or "").strip()
+    if old_ingredients != new_ingredients:
+        changes["ingredients"] = {"old": old_ingredients or None, "new": new_ingredients or None}
+
     if not changes:
         return "unchanged", {}
-    if "price" in changes and "title" not in changes and "bonus" not in changes:
+    if "price" in changes and "title" not in changes and "bonus" not in changes and "ingredients" not in changes:
         return "price_change", changes
-    if "title" in changes and "price" not in changes and "bonus" not in changes:
+    if "title" in changes and "price" not in changes and "bonus" not in changes and "ingredients" not in changes:
         return "title_change", changes
-    if "bonus" in changes and "price" not in changes and "title" not in changes:
+    if "bonus" in changes and "price" not in changes and "title" not in changes and "ingredients" not in changes:
         return "bonus_change", changes
+    if "ingredients" in changes and "price" not in changes and "title" not in changes and "bonus" not in changes:
+        return "ingredients_change", changes
     return "multi_change", changes
 
 
@@ -159,6 +167,7 @@ def _update_catalog_and_history(sb, retailer, snapshot_id, rows, has_retailer):
                 "main_category": catalog_row["main_category"],
                 "sub_category": catalog_row["sub_category"],
                 "image_url": catalog_row["image_url"],
+                "ingredients": catalog_row["ingredients"],
                 "is_bonus": catalog_row["is_bonus"],
                 "is_available": True,
                 "last_seen_at": now_iso,
@@ -239,10 +248,11 @@ def create_snapshot(products, retailer="ah", label=None):
             "discount_labels": p.get("discountLabels", []),
             "description_highlights": p.get("descriptionHighlights"),
             "property_icons": p.get("propertyIcons", []),
-            "image_url": image_url,
-            "available_online": p.get("availableOnline", True),
+        "image_url": image_url,
+        "available_online": p.get("availableOnline", True),
             "order_availability_status": p.get("orderAvailabilityStatus"),
             "raw_json": p,
+            "ingredients": p.get("ingredients"),
         }
         if has_retailer:
             r["retailer"] = retailer
@@ -297,7 +307,7 @@ def get_catalog_products(retailer):
     try:
         r = (
             sb.table("product_catalog")
-            .select("id, retailer, webshop_id, title, brand, price, sales_unit_size, unit_price_description, nutriscore, sub_category, image_url, is_bonus, first_seen_at, last_seen_at")
+            .select("id, retailer, webshop_id, title, brand, price, sales_unit_size, unit_price_description, nutriscore, sub_category, image_url, ingredients, is_bonus, first_seen_at, last_seen_at")
             .eq("retailer", retailer)
             .order("title")
             .execute()
@@ -543,6 +553,7 @@ def get_product_at_snapshot(product_id, snapshot_id):
         "main_category": snapshot_row.get("main_category"),
         "sub_category": snapshot_row.get("sub_category"),
         "image_url": snapshot_row.get("image_url"),
+        "ingredients": snapshot_row.get("ingredients"),
         "is_bonus": bool(snapshot_row.get("is_bonus", False)),
         "is_available": True,
         "first_seen_at": catalog.get("first_seen_at") or "",

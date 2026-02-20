@@ -5,7 +5,7 @@ load_dotenv()
 
 from flask import Flask, render_template, redirect, url_for, flash, request, abort, session, jsonify, send_from_directory
 import database
-from retailers import RETAILERS, get_fetcher
+from retailers import RETAILERS, get_fetcher, enrich_products_with_ingredients
 
 FRONTEND_DIR = os.path.join(os.path.dirname(__file__), "frontend", "dist")
 
@@ -119,6 +119,7 @@ def snapshot_new(slug):
     try:
         fetcher = get_fetcher(slug)
         products = fetcher.fetch_all_products()
+        enrich_products_with_ingredients(fetcher, products)
         database.create_snapshot(products, retailer=slug)
         flash(f"Snapshot aangemaakt met {len(products)} producten.", "success")
     except NotImplementedError as e:
@@ -277,6 +278,7 @@ def api_refresh_all():
         try:
             fetcher = get_fetcher(slug)
             products = fetcher.fetch_all_products()
+            enrich_products_with_ingredients(fetcher, products)
             snapshot_id = database.create_snapshot(products, retailer=slug)
             results[slug] = {"ok": True, "product_count": len(products), "snapshot_id": snapshot_id}
         except Exception as e:
@@ -304,6 +306,7 @@ def api_snapshot_new(slug):
     try:
         fetcher = get_fetcher(slug)
         products = fetcher.fetch_all_products()
+        enrich_products_with_ingredients(fetcher, products)
         snapshot_id = database.create_snapshot(products, retailer=slug)
         return jsonify({"snapshot_id": snapshot_id, "product_count": len(products)})
     except NotImplementedError as e:
@@ -327,6 +330,7 @@ def cron_snapshots():
         try:
             fetcher = get_fetcher(slug)
             products = fetcher.fetch_all_products()
+            enrich_products_with_ingredients(fetcher, products)
             snapshot_id = database.create_snapshot(products, retailer=slug)
             results[slug] = {"ok": True, "product_count": len(products), "snapshot_id": snapshot_id}
         except Exception as e:

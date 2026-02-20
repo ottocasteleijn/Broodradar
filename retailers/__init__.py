@@ -25,3 +25,20 @@ def get_fetcher(slug):
         from retailers import jumbo
         return jumbo
     raise ValueError(f"Onbekende retailer: {slug}")
+
+
+def enrich_products_with_ingredients(fetcher, products):
+    """Haal ingrediënten op en voeg ze toe aan elk product (mutates products)."""
+    if not products:
+        return
+    fetch_ingredients = getattr(fetcher, "fetch_ingredients", None)
+    if not callable(fetch_ingredients):
+        return
+    ids = [p.get("webshopId") for p in products if p.get("webshopId")]
+    if not ids:
+        return
+    ingredients_map = fetch_ingredients(ids)
+    for p in products:
+        wid = p.get("webshopId")
+        if wid is not None:
+            p["ingredients"] = ingredients_map.get(str(wid))

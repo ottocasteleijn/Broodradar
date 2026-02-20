@@ -39,6 +39,7 @@ export interface CatalogProduct {
   main_category: string | null;
   sub_category: string | null;
   image_url: string | null;
+  ingredients: string | null;
   is_bonus: boolean;
   is_available: boolean;
   first_seen_at: string;
