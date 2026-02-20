@@ -512,15 +512,40 @@ def ensure_catalog_entry(retailer, webshop_id):
     ins = sb.table("product_catalog").insert(catalog_row).execute()
     if not ins.data:
         return None
-    catalog_id = ins.data[0]["id"]
-    snapshots = get_snapshots(retailer)
-    if snapshots:
-        snapshot_id = snapshots[0]["id"]
-        sb.table("product_history").insert({
-            "product_id": catalog_id,
-            "snapshot_id": snapshot_id,
-            "event_type": "first_seen",
-            "changes": {},
-            "price_at_snapshot": row.get("price"),
-        }).execute()
+    # Geen product_history schrijven bij lazy-aanmaak (gebruiker volgt product).
+    # Alleen wijzigingen uit snapshots (supermarkt) horen in "Recente wijzigingen".
     return ins.data[0]
+
+
+def ensure_catalog_entries_for_webshop_ids(retailer, webshop_ids):
+    """
+    Zorg dat product_catalog een entry heeft voor elk (retailer, webshop_id).
+    Ontbrekende entries worden uit het laatste snapshot aangemaakt.
+    Retourneert een dict webshop_id -> catalog_id voor alle opgegeven webshop_ids (bestaand + nieuw).
+    """
+    if not _check_product_catalog() or not webshop_ids:
+        return {}
+    catalog_ids = get_catalog_ids_for_webshop_ids(retailer, list(webshop_ids))
+    missing = [wid for wid in webshop_ids if wid and wid not in catalog_ids]
+    if not missing:
+        return catalog_ids
+    snapshot_products = get_latest_snapshot_products(retailer)
+    by_webshop = {p.get("webshop_id"): p for p in snapshot_products if p.get("webshop_id")}
+    to_insert = []
+    for wid in missing:
+        p = by_webshop.get(wid)
+        if not p:
+            continue
+        to_insert.append(_catalog_row_from_snapshot_product(p))
+    if to_insert:
+        sb = _get_client()
+        try:
+            for i in range(0, len(to_insert), 100):
+                batch = to_insert[i : i + 100]
+                ins = sb.table("product_catalog").insert(batch).execute()
+                if ins.data:
+                    for row in ins.data:
+                        catalog_ids[row["webshop_id"]] = row["id"]
+        except Exception:
+            pass
+    return catalog_ids
