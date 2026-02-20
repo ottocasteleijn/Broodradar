@@ -10,38 +10,53 @@ import { useFollowedProducts } from "@/hooks/useFollowedProducts";
 
 export default function ProductsPage() {
   const [retailers, setRetailers] = useState<Retailer[]>([]);
-  const [selectedSlug, setSelectedSlug] = useState<string>("");
   const [products, setProducts] = useState<Product[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [brandFilter, setBrandFilter] = useState("all");
+  /** Retailer ids that are enabled in the filter (show products from these). */
+  const [retailerFilter, setRetailerFilter] = useState<Record<string, boolean>>({});
   const { isFollowed, toggle } = useFollowedProducts();
 
   useEffect(() => {
-    api.retailers().then(setRetailers).catch(() => {});
+    api.retailers()
+      .then((list) => {
+        setRetailers(list);
+        setRetailerFilter((prev) => {
+          const next = { ...prev };
+          list.filter((r) => r.active).forEach((r) => {
+            if (!(r.id in next)) next[r.id] = true;
+          });
+          return next;
+        });
+        return list;
+      })
+      .catch(() => {});
   }, []);
 
   useEffect(() => {
-    if (!selectedSlug) {
-      setProducts([]);
+    if (retailers.length === 0) {
+      setLoading(false);
       return;
     }
     setLoading(true);
-    api.retailerProducts(selectedSlug)
-      .then(setProducts)
+    const active = retailers.filter((r) => r.active);
+    Promise.all(active.map((r) => api.retailerProducts(r.id)))
+      .then((arrays) => setProducts(arrays.flat()))
       .catch(() => setProducts([]))
       .finally(() => setLoading(false));
-  }, [selectedSlug]);
+  }, [retailers.map((r) => r.id).join(",")]);
 
   const filteredProducts = useMemo(() => {
     return products.filter((product) => {
       const matchesSearch = product.name.toLowerCase().includes(search.toLowerCase());
       const matchesCategory = categoryFilter === "all" || product.category === categoryFilter;
       const matchesBrand = brandFilter === "all" || product.brand === brandFilter;
-      return matchesSearch && matchesCategory && matchesBrand;
+      const matchesRetailer = retailerFilter[product.supermarketId] !== false;
+      return matchesSearch && matchesCategory && matchesBrand && matchesRetailer;
     });
-  }, [products, search, categoryFilter, brandFilter]);
+  }, [products, search, categoryFilter, brandFilter, retailerFilter]);
 
   const categories = useMemo(
     () => Array.from(new Set(products.map((p) => p.category).filter(Boolean))).sort(),
@@ -52,7 +67,15 @@ export default function ProductsPage() {
     [products]
   );
 
-  const selectedRetailer = retailers.find((r) => r.id === selectedSlug);
+  const retailerById = useMemo(() => {
+    const map: Record<string, Retailer> = {};
+    retailers.forEach((r) => { map[r.id] = r; });
+    return map;
+  }, [retailers]);
+
+  const toggleRetailerFilter = (retailerId: string) => {
+    setRetailerFilter((prev) => ({ ...prev, [retailerId]: !prev[retailerId] }));
+  };
 
   return (
     <div className="space-y-6">
@@ -64,64 +87,69 @@ export default function ProductsPage() {
       <Card className="border-slate-200 shadow-sm">
         <CardContent className="p-4">
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+            <div className="relative">
+              <label className="block text-sm font-medium text-slate-700 mb-1">Zoeken</label>
+              <Search className="absolute left-2.5 top-9 h-4 w-4 text-slate-400" />
+              <Input
+                placeholder="Zoeken..."
+                className="pl-9"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+            </div>
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Supermarkt</label>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Categorie</label>
               <select
                 className="flex h-10 w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm ring-offset-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-950 focus-visible:ring-offset-2"
-                value={selectedSlug}
-                onChange={(e) => setSelectedSlug(e.target.value)}
+                value={categoryFilter}
+                onChange={(e) => setCategoryFilter(e.target.value)}
               >
-                <option value="">Kies een supermarkt</option>
-                {retailers.map((r) => (
-                  <option key={r.id} value={r.id}>{r.name}</option>
+                <option value="all">Alle categorieën</option>
+                {categories.map((c) => (
+                  <option key={c} value={c}>{c}</option>
                 ))}
               </select>
             </div>
-            {selectedSlug && (
-              <>
-                <div className="relative">
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Zoeken</label>
-                  <Search className="absolute left-2.5 top-9 h-4 w-4 text-slate-400" />
-                  <Input
-                    placeholder="Zoeken..."
-                    className="pl-9"
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                  />
-                </div>
-                <select
-                  className="flex h-10 w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm ring-offset-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-950 focus-visible:ring-offset-2 mt-6"
-                  value={categoryFilter}
-                  onChange={(e) => setCategoryFilter(e.target.value)}
-                >
-                  <option value="all">Alle categorieën</option>
-                  {categories.map((c) => (
-                    <option key={c} value={c}>{c}</option>
-                  ))}
-                </select>
-                <select
-                  className="flex h-10 w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm ring-offset-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-950 focus-visible:ring-offset-2 mt-6"
-                  value={brandFilter}
-                  onChange={(e) => setBrandFilter(e.target.value)}
-                >
-                  <option value="all">Alle merken</option>
-                  {brands.map((b) => (
-                    <option key={b} value={b}>{b}</option>
-                  ))}
-                </select>
-              </>
-            )}
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Merk</label>
+              <select
+                className="flex h-10 w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm ring-offset-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-950 focus-visible:ring-offset-2"
+                value={brandFilter}
+                onChange={(e) => setBrandFilter(e.target.value)}
+              >
+                <option value="all">Alle merken</option>
+                {brands.map((b) => (
+                  <option key={b} value={b}>{b}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Supermarkten</label>
+              <div className="flex flex-wrap gap-2 mt-1">
+                {retailers.filter((r) => r.active).map((r) => (
+                  <label
+                    key={r.id}
+                    className="inline-flex items-center gap-1.5 cursor-pointer rounded-full border px-3 py-1.5 text-sm transition-colors border-slate-200 bg-white hover:bg-slate-50 has-[:checked]:border-slate-400 has-[:checked]:bg-slate-100"
+                  >
+                    {r.icon && (
+                      <img src={r.icon} alt="" className="h-4 w-4 shrink-0 object-contain" />
+                    )}
+                    <input
+                      type="checkbox"
+                      checked={retailerFilter[r.id] !== false}
+                      onChange={() => toggleRetailerFilter(r.id)}
+                      className="rounded border-slate-300 text-slate-900 focus:ring-slate-500"
+                    />
+                    <span className="text-slate-700">{r.name}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
           </div>
         </CardContent>
       </Card>
 
-      {!selectedSlug && (
-        <div className="p-8 text-center text-slate-500 rounded-xl border border-slate-200 bg-slate-50/50">
-          Kies een supermarkt om producten te bekijken.
-        </div>
-      )}
-
-      {selectedSlug && loading && (
+      {loading && (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {Array.from({ length: 8 }).map((_, i) => (
             <Card key={i} className="border-slate-200 shadow-sm">
@@ -143,17 +171,18 @@ export default function ProductsPage() {
         </div>
       )}
 
-      {selectedSlug && !loading && (
+      {!loading && (
         <>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {filteredProducts.map((product) => {
               const productUrl = product.catalogId
                 ? `/product/${product.catalogId}`
-                : product.webshopId && selectedSlug
-                  ? `/product/ref/${selectedSlug}/${encodeURIComponent(product.webshopId)}`
+                : product.webshopId && product.supermarketId
+                  ? `/product/ref/${product.supermarketId}/${encodeURIComponent(product.webshopId)}`
                   : null;
               const canFollow = Boolean(product.catalogId);
               const followed = isFollowed(product.catalogId);
+              const retailer = retailerById[product.supermarketId];
 
               const cardContent = (
                 <div className="flex gap-3">
@@ -169,7 +198,17 @@ export default function ProductsPage() {
                     </div>
                   )}
                   <div className="min-w-0 flex-1">
-                    <p className="font-medium text-slate-900 line-clamp-2">{product.name}</p>
+                    <div className="flex items-center gap-2 mb-1">
+                      {retailer?.icon && (
+                        <img
+                          src={retailer.icon}
+                          alt=""
+                          className="h-5 w-5 shrink-0 object-contain"
+                          title={retailer.name}
+                        />
+                      )}
+                      <p className="font-medium text-slate-900 line-clamp-2">{product.name}</p>
+                    </div>
                     <p className="text-sm text-slate-500 mt-0.5">
                       {product.brand && <span>{product.brand}</span>}
                       {product.brand && product.category && " · "}
@@ -207,7 +246,7 @@ export default function ProductsPage() {
 
               return (
                 <Card
-                  key={product.id}
+                  key={`${product.supermarketId}-${product.webshopId}`}
                   className={`border-slate-200 shadow-sm transition-colors relative ${productUrl ? "hover:border-slate-300" : ""}`}
                 >
                   <CardContent className="p-4">
@@ -241,7 +280,6 @@ export default function ProductsPage() {
           </div>
           <div className="text-sm text-slate-500">
             Toont {filteredProducts.length} producten
-            {selectedRetailer && ` van ${selectedRetailer.name}`}
           </div>
         </>
       )}

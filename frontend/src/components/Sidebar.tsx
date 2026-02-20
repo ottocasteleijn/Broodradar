@@ -1,5 +1,5 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { LayoutDashboard, Package, Store, History, Camera, LogOut, Menu, RefreshCw } from "lucide-react";
+import { LayoutDashboard, Package, Store, Camera, LogOut, Menu, RefreshCw } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
@@ -9,7 +9,6 @@ const navItems = [
   { title: "Dashboard", href: "/", icon: LayoutDashboard },
   { title: "Producten", href: "/producten", icon: Package },
   { title: "Supermarkten", href: "/supermarkten", icon: Store },
-  { title: "Tijdlijn", href: "/timeline", icon: History },
   { title: "Snapshots", href: "/snapshots", icon: Camera },
 ];
 
