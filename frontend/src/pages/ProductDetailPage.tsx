@@ -159,6 +159,24 @@ export default function ProductDetailPage() {
       .finally(() => setLoading(false));
   }, [id, snapshotIdParam, retailerParam, webshopIdParam, isVersionMode]);
 
+  const displayHistory = useMemo(() => {
+    if (!product) return history;
+    const hasFirstSeen = history.some((e) => e.event_type === "first_seen");
+    if (hasFirstSeen || !product.first_seen_at) return history;
+    const synthetic: ProductHistoryEntry = {
+      id: "_first_seen",
+      product_id: product.id,
+      snapshot_id: "",
+      event_type: "first_seen",
+      changes: {},
+      price_at_snapshot: product.price != null ? Number(product.price) : null,
+      created_at: product.first_seen_at,
+    };
+    const combined = [...history, synthetic];
+    combined.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+    return combined;
+  }, [history, product]);
+
   if (loading) {
     return (
       <div className="space-y-8">
@@ -216,24 +234,6 @@ export default function ProductDetailPage() {
   const retailerName = productRetailer?.name ?? product.retailer;
   const price = product.price != null ? Number(product.price) : null;
   const nutri = product.nutriscore && /^[A-E]$/i.test(product.nutriscore) ? product.nutriscore.toUpperCase() : null;
-
-  /** Geschiedenislog: altijd een regel voor eerste keer gespot (ook bij lazy-created producten zonder history-entry). */
-  const displayHistory = useMemo(() => {
-    const hasFirstSeen = history.some((e) => e.event_type === "first_seen");
-    if (hasFirstSeen || !product.first_seen_at) return history;
-    const synthetic: ProductHistoryEntry = {
-      id: "_first_seen",
-      product_id: product.id,
-      snapshot_id: "",
-      event_type: "first_seen",
-      changes: {},
-      price_at_snapshot: product.price != null ? Number(product.price) : null,
-      created_at: product.first_seen_at,
-    };
-    const combined = [...history, synthetic];
-    combined.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-    return combined;
-  }, [history, product.id, product.first_seen_at, product.price]);
 
   return (
     <div className="space-y-8">
