@@ -106,6 +106,32 @@ export interface CompareResult {
   bonus_changes: BonusChange[];
 }
 
+const CACHE_TTL = {
+  retailers: 5 * 60 * 1000,       // 5 min
+  retailerProducts: 2 * 60 * 1000, // 2 min
+  snapshots: 2 * 60 * 1000,        // 2 min
+  timeline: 2 * 60 * 1000,         // 2 min
+  compare: 2 * 60 * 1000,          // 2 min
+  product: 2 * 60 * 1000,          // 2 min
+  productHistory: 2 * 60 * 1000,   // 2 min
+} as const;
+
+const cache = new Map<string, { data: unknown; expiresAt: number }>();
+
+async function cached<T>(key: string, ttlMs: number, fn: () => Promise<T>): Promise<T> {
+  const entry = cache.get(key);
+  if (entry && entry.expiresAt > Date.now()) return entry.data as T;
+  const data = await fn();
+  cache.set(key, { data, expiresAt: Date.now() + ttlMs });
+  return data;
+}
+
+export function invalidateCache(prefix: string): void {
+  for (const key of cache.keys()) {
+    if (key === prefix || key.startsWith(prefix + ':')) cache.delete(key);
+  }
+}
+
 class ApiError extends Error {
   status: number;
   constructor(message: string, status: number) {
@@ -181,43 +207,70 @@ export const api = {
     me: () => request<{ email: string }>('/api/auth/me'),
   },
 
-  retailers: () => request<Retailer[]>('/api/retailers'),
+  retailers: () =>
+    cached('retailers', CACHE_TTL.retailers, () => request<Retailer[]>('/api/retailers')),
 
   retailerProducts: async (slug: string): Promise<Product[]> => {
-    const raw = await request<Record<string, unknown>[]>(`/api/retailers/${slug}/products`);
+    const raw = await cached(`retailerProducts:${slug}`, CACHE_TTL.retailerProducts, () =>
+      request<Record<string, unknown>[]>(`/api/retailers/${slug}/products`)
+    );
     return raw.map(mapProduct);
   },
 
-  createSnapshot: (slug: string) =>
-    request<{ snapshot_id: string; product_count: number }>(
+  createSnapshot: async (slug: string) => {
+    const result = await request<{ snapshot_id: string; product_count: number }>(
       `/api/retailers/${slug}/snapshot`,
       { method: 'POST' },
-    ),
+    );
+    invalidateCache('retailerProducts');
+    invalidateCache('snapshots');
+    return result;
+  },
 
   snapshots: async (retailer?: string): Promise<Snapshot[]> => {
-    const params = retailer ? `?retailer=${retailer}` : '';
-    const raw = await request<Record<string, unknown>[]>(`/api/snapshots${params}`);
+    const key = `snapshots:${retailer ?? 'all'}`;
+    const raw = await cached(key, CACHE_TTL.snapshots, async () => {
+      const params = retailer ? `?retailer=${retailer}` : '';
+      return request<Record<string, unknown>[]>(`/api/snapshots${params}`);
+    });
     return raw.map(mapSnapshot);
   },
 
   timeline: (retailer?: string, type?: string) => {
-    const params = new URLSearchParams();
-    if (retailer) params.set('retailer', retailer);
-    if (type) params.set('type', type);
-    const qs = params.toString();
-    return request<TimelineEvent[]>(`/api/timeline${qs ? `?${qs}` : ''}`);
+    const key = `timeline:${retailer ?? ''}:${type ?? ''}`;
+    return cached(key, CACHE_TTL.timeline, () => {
+      const params = new URLSearchParams();
+      if (retailer) params.set('retailer', retailer);
+      if (type) params.set('type', type);
+      const qs = params.toString();
+      return request<TimelineEvent[]>(`/api/timeline${qs ? `?${qs}` : ''}`);
+    });
   },
 
-  compareSnapshots: (oldId: string, newId: string) =>
-    request<CompareResult>(`/api/snapshots/compare?old=${oldId}&new=${newId}`),
+  compareSnapshots: (oldId: string, newId: string) => {
+    const key = `compare:${oldId}:${newId}`;
+    return cached(key, CACHE_TTL.compare, () =>
+      request<CompareResult>(`/api/snapshots/compare?old=${oldId}&new=${newId}`)
+    );
+  },
 
-  product: (id: string) => request<CatalogProduct>(`/api/products/${id}`),
+  product: (id: string) =>
+    cached(`product:${id}`, CACHE_TTL.product, () =>
+      request<CatalogProduct>(`/api/products/${id}`)
+    ),
 
-  productByRef: (retailer: string, webshopId: string) =>
-    request<CatalogProduct>(`/api/products/by-ref?retailer=${encodeURIComponent(retailer)}&webshop_id=${encodeURIComponent(webshopId)}`),
+  productByRef: (retailer: string, webshopId: string) => {
+    const key = `productByRef:${retailer}:${webshopId}`;
+    return cached(key, CACHE_TTL.product, () =>
+      request<CatalogProduct>(`/api/products/by-ref?retailer=${encodeURIComponent(retailer)}&webshop_id=${encodeURIComponent(webshopId)}`)
+    );
+  },
 
   productHistory: (id: string, limit?: number) => {
-    const params = limit != null ? `?limit=${limit}` : '';
-    return request<ProductHistoryEntry[]>(`/api/products/${id}/history${params}`);
+    const key = `productHistory:${id}:${limit ?? ''}`;
+    return cached(key, CACHE_TTL.productHistory, () => {
+      const params = limit != null ? `?limit=${limit}` : '';
+      return request<ProductHistoryEntry[]>(`/api/products/${id}/history${params}`);
+    });
   },
 };

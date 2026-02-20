@@ -9,16 +9,26 @@ import TimelinePage from "@/pages/TimelinePage";
 import SnapshotsPage from "@/pages/SnapshotsPage";
 import ComparePage from "@/pages/ComparePage";
 import ProductDetailPage from "@/pages/ProductDetailPage";
+import { Skeleton } from "@/components/ui/Skeleton";
 import type { ReactNode } from "react";
+
+function AuthLoadingSkeleton() {
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-slate-50">
+      <div className="flex flex-col items-center gap-4 w-full max-w-xs px-4">
+        <Skeleton className="h-10 w-48 rounded-lg" />
+        <Skeleton text className="w-40" />
+        <Skeleton text className="w-32" />
+        <Skeleton text className="w-36" />
+      </div>
+    </div>
+  );
+}
 
 function ProtectedRoute({ children }: { children: ReactNode }) {
   const { email, loading } = useAuth();
   if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50">
-        <div className="text-slate-500">Laden...</div>
-      </div>
-    );
+    return <AuthLoadingSkeleton />;
   }
   if (!email) return <Navigate to="/login" replace />;
   return <>{children}</>;

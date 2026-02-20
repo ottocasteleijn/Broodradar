@@ -1,5 +1,6 @@
 import { Card, CardContent } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
+import { Skeleton } from "@/components/ui/Skeleton";
 import { History, TrendingUp, Plus, Minus, Percent } from "lucide-react";
 import { useEffect, useState } from "react";
 import { api, type TimelineEvent, type Retailer } from "@/api/client";
@@ -88,7 +89,25 @@ export default function TimelinePage() {
       </div>
 
       {loading ? (
-        <div className="text-slate-500">Laden...</div>
+        <div className="space-y-3">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <Card key={i} className="border-slate-200 shadow-sm">
+              <CardContent className="flex flex-col sm:flex-row sm:items-center gap-4 p-4">
+                <div className="flex items-start gap-4 sm:items-center">
+                  <Skeleton className="h-10 w-10 rounded-full shrink-0" />
+                  <div className="flex-1 min-w-0 space-y-2">
+                    <div className="flex gap-2">
+                      <Skeleton className="h-4 w-48" />
+                      <Skeleton className="h-5 w-24 rounded-full" />
+                    </div>
+                    <Skeleton text className="w-36" />
+                  </div>
+                </div>
+                <Skeleton text className="w-24 sm:ml-auto sm:shrink-0" />
+              </CardContent>
+            </Card>
+          ))}
+        </div>
       ) : events.length === 0 ? (
         <Card className="border-dashed border-2 border-slate-200 shadow-none bg-slate-50/50">
           <CardContent className="flex flex-col items-center justify-center py-16 text-center">

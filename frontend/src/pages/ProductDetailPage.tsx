@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { api, type CatalogProduct, type ProductHistoryEntry, type Retailer } from "@/api/client";
 import { Card, CardContent } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
+import { Skeleton } from "@/components/ui/Skeleton";
 import { ArrowLeft, Package, Calendar } from "lucide-react";
 
 const EVENT_LABELS: Record<string, string> = {
@@ -122,7 +123,48 @@ export default function ProductDetailPage() {
   }, [id, retailerParam, webshopIdParam]);
 
   if (loading) {
-    return <div className="text-slate-500">Product laden...</div>;
+    return (
+      <div className="space-y-8">
+        <div>
+          <Skeleton text className="w-40 mb-2" />
+          <Skeleton className="h-8 w-48" />
+        </div>
+        <Card className="overflow-hidden">
+          <CardContent className="p-0">
+            <div className="flex flex-col sm:flex-row gap-4 sm:gap-6 p-4 sm:p-6">
+              <Skeleton className="h-28 w-28 sm:h-32 sm:w-32 rounded-lg shrink-0" />
+              <div className="min-w-0 flex-1 space-y-3">
+                <Skeleton className="h-6 w-full max-w-sm" />
+                <Skeleton text className="w-24" />
+                <div className="flex gap-2 flex-wrap">
+                  <Skeleton className="h-5 w-16" />
+                  <Skeleton className="h-5 w-20" />
+                  <Skeleton className="h-6 w-6 rounded" />
+                </div>
+                <div className="flex gap-2">
+                  <Skeleton text className="w-36" />
+                  <Skeleton text className="w-40" />
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <div>
+          <Skeleton className="h-5 w-32 mb-4" />
+          <div className="space-y-4">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className="flex gap-3 sm:gap-4 pb-4">
+                <Skeleton className="h-5 w-24 rounded-full shrink-0" />
+                <div className="flex-1 space-y-2">
+                  <Skeleton text className="w-full" />
+                  <Skeleton text className="w-28" />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
   }
   if (error || !product) {
     return (

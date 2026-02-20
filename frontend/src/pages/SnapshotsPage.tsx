@@ -1,6 +1,7 @@
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card, CardContent } from "@/components/ui/Card";
+import { Skeleton } from "@/components/ui/Skeleton";
 import { ArrowRight } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useEffect, useState } from "react";
@@ -48,7 +49,53 @@ export default function SnapshotsPage() {
       </div>
 
       {loading ? (
-        <div className="text-slate-500">Laden...</div>
+        <>
+          <div className="flex gap-4 mb-8">
+            <Skeleton className="h-10 w-full sm:w-[200px]" />
+          </div>
+          <div className="md:hidden space-y-3">
+            {Array.from({ length: 8 }).map((_, i) => (
+              <Card key={i} className="border-slate-200 shadow-sm">
+                <CardContent className="p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0 space-y-2">
+                      <Skeleton className="h-5 w-20 rounded-full" />
+                      <Skeleton text className="w-44" />
+                      <Skeleton text className="w-24" />
+                    </div>
+                    <Skeleton className="h-8 w-20 shrink-0" />
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+          <div className="hidden md:block rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm text-left">
+                <thead className="bg-slate-50 text-slate-500 font-medium border-b border-slate-200">
+                  <tr>
+                    <th className="px-6 py-4">Supermarkt</th>
+                    <th className="px-6 py-4">Datum</th>
+                    <th className="px-6 py-4">Producten</th>
+                    <th className="px-6 py-4">Label</th>
+                    <th className="px-6 py-4 text-right">Acties</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {Array.from({ length: 8 }).map((_, i) => (
+                    <tr key={i}>
+                      <td className="px-6 py-4"><Skeleton className="h-5 w-20 rounded-full inline-block" /></td>
+                      <td className="px-6 py-4"><Skeleton text className="w-32" /></td>
+                      <td className="px-6 py-4"><Skeleton text className="w-12" /></td>
+                      <td className="px-6 py-4"><Skeleton text className="w-16" /></td>
+                      <td className="px-6 py-4 text-right"><Skeleton className="h-8 w-20 ml-auto" /></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </>
       ) : snapshots.length === 0 ? (
         <div className="p-8 text-center text-slate-500 rounded-xl border border-slate-200 bg-slate-50/50">
           Geen snapshots gevonden. Maak een nieuwe snapshot om te beginnen.

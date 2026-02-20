@@ -4,6 +4,7 @@ import { api, type Snapshot, type Retailer, type CompareResult } from "@/api/cli
 import { Card, CardContent } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
+import { Skeleton } from "@/components/ui/Skeleton";
 import { ArrowLeft, TrendingUp, TrendingDown, Plus, Minus, RefreshCw, GitCompareArrows } from "lucide-react";
 
 export default function ComparePage() {
@@ -120,7 +121,37 @@ export default function ComparePage() {
         </CardContent>
       </Card>
 
-      {loading && <div className="text-slate-500">Vergelijking laden...</div>}
+      {loading && oldId && newId && (
+        <>
+          <div className="grid gap-4 grid-cols-2 md:grid-cols-4">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <Card key={i} className="border-slate-200 shadow-sm">
+                <CardContent className="flex items-center gap-4 p-4">
+                  <Skeleton className="h-12 w-12 rounded-full shrink-0" />
+                  <div className="space-y-2">
+                    <Skeleton className="h-7 w-10" />
+                    <Skeleton text className="w-28" />
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+          <div className="space-y-3">
+            <Skeleton className="h-6 w-40 mb-2" />
+            <div className="rounded-xl border border-slate-200 bg-white overflow-hidden">
+              <div className="p-4 space-y-3">
+                {Array.from({ length: 5 }).map((_, i) => (
+                  <div key={i} className="flex gap-3 items-center">
+                    <Skeleton className="h-8 w-8 rounded shrink-0" />
+                    <Skeleton text className="flex-1" />
+                    <Skeleton text className="w-16" />
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </>
+      )}
 
       {error && (
         <div className="rounded-md bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">

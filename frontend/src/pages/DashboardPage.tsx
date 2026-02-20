@@ -4,6 +4,7 @@ import { Link } from "react-router-dom";
 import { ArrowRight, ShoppingCart, Clock } from "lucide-react";
 import { useEffect, useState } from "react";
 import { api, type Retailer } from "@/api/client";
+import { Skeleton } from "@/components/ui/Skeleton";
 
 function formatDate(dateStr: string | null) {
   if (!dateStr) return '-';
@@ -28,7 +29,41 @@ export default function DashboardPage() {
   }, []);
 
   if (loading) {
-    return <div className="text-slate-500">Dashboard laden...</div>;
+    return (
+      <div className="space-y-8">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900">Dashboard</h1>
+            <p className="text-slate-500 mt-2">Overzicht van supermarkt assortimenten en prijzen.</p>
+          </div>
+        </div>
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <Card key={i} className="h-full border-slate-200">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <Skeleton className="h-7 w-32" />
+                <Skeleton className="h-5 w-16 rounded-full" />
+              </CardHeader>
+              <CardContent>
+                <div className="mt-4 space-y-4">
+                  <div className="flex justify-between">
+                    <Skeleton text className="w-24" />
+                    <Skeleton text className="w-8" />
+                  </div>
+                  <div className="flex justify-between">
+                    <Skeleton text className="w-28" />
+                    <Skeleton text className="w-24" />
+                  </div>
+                </div>
+                <div className="mt-6">
+                  <Skeleton text className="w-28" />
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </div>
+    );
   }
 
   return (

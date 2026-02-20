@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Badge } from "@/components/ui/Badge";
 import { Card, CardContent } from "@/components/ui/Card";
+import { Skeleton } from "@/components/ui/Skeleton";
 import { ArrowLeft, Search, Plus, Download, Loader2 } from "lucide-react";
 import { useState, useMemo, useEffect, useCallback } from "react";
 
@@ -102,7 +103,52 @@ export default function SupermarketPage() {
   }, [filteredProducts, retailer]);
 
   if (loading) {
-    return <div className="text-slate-500">Producten laden...</div>;
+    return (
+      <div className="space-y-6">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div>
+            <Skeleton text className="w-40 mb-2" />
+            <Skeleton className="h-8 w-56 mb-1" />
+            <Skeleton text className="w-48" />
+          </div>
+          <div className="flex gap-2">
+            <Skeleton className="h-10 w-32" />
+            <Skeleton className="h-10 w-36" />
+          </div>
+        </div>
+        <Card className="border-slate-200 shadow-sm">
+          <CardContent className="p-4">
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
+              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-10 w-full" />
+            </div>
+          </CardContent>
+        </Card>
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          {Array.from({ length: 8 }).map((_, i) => (
+            <Card key={i} className="border-slate-200 shadow-sm">
+              <CardContent className="p-4">
+                <div className="flex gap-3">
+                  <Skeleton className="h-14 w-14 rounded-lg shrink-0" />
+                  <div className="min-w-0 flex-1 space-y-2">
+                    <Skeleton text className="w-full" />
+                    <Skeleton text className="w-[75%]" />
+                    <div className="flex gap-2 flex-wrap">
+                      <Skeleton className="h-4 w-14" />
+                      <Skeleton className="h-4 w-12" />
+                      <Skeleton className="h-6 w-6 rounded" />
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </div>
+    );
   }
 
   if (!retailer) {

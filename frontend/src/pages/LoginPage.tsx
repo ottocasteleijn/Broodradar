@@ -3,7 +3,7 @@ import { Input } from "@/components/ui/Input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/Card";
 import { useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
-import { Lock, Mail } from "lucide-react";
+import { Lock, Mail, Loader2 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 
 export default function LoginPage() {
@@ -90,7 +90,11 @@ export default function LoginPage() {
                 className="w-full bg-blue-600 hover:bg-blue-700"
                 disabled={loading}
               >
-                {loading ? "Inloggen..." : "Inloggen"}
+                {loading ? (
+                  <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Inloggen...</>
+                ) : (
+                  "Inloggen"
+                )}
               </Button>
             </form>
           </CardContent>
