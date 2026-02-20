@@ -57,12 +57,17 @@ export default function DashboardPage() {
     [products]
   );
 
+  /** Alleen wijzigingen van de supermarkt tonen; geen oude first_seen wanneer gebruiker net favoriet maakt. */
+  const RECENT_DAYS = 14;
   const changesList = useMemo(() => {
+    const cutoff = Date.now() - RECENT_DAYS * 24 * 60 * 60 * 1000;
     return followedIds
       .map((id) => {
         const entry = histories[id];
         const product = products[followedIds.indexOf(id)];
         if (!entry || !product || entry.event_type === "unchanged") return null;
+        const entryTime = new Date(entry.created_at).getTime();
+        if (entryTime < cutoff) return null; // Alleen recente (supermarkt-)wijzigingen
         return { product: product as CatalogProduct, entry };
       })
       .filter((x): x is { product: CatalogProduct; entry: ProductHistoryEntry } => x != null);
