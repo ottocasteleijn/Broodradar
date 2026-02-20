@@ -80,9 +80,14 @@ export default function DashboardPage() {
           <Link key={market.id} to={`/supermarket/${market.id}`} className="block group">
             <Card className="h-full transition-all duration-200 hover:shadow-md hover:border-blue-200 border-slate-200">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-xl font-bold text-slate-900 group-hover:text-blue-600 transition-colors">
-                  {market.name}
-                </CardTitle>
+                <div className="flex items-center gap-2 min-w-0">
+                  {market.icon && (
+                    <img src={market.icon} alt="" className="h-8 w-8 shrink-0 object-contain" />
+                  )}
+                  <CardTitle className="text-xl font-bold text-slate-900 group-hover:text-blue-600 transition-colors truncate">
+                    {market.name}
+                  </CardTitle>
+                </div>
                 {market.active ? (
                   <Badge variant="success" className="bg-emerald-100 text-emerald-700 hover:bg-emerald-200">
                     Actief

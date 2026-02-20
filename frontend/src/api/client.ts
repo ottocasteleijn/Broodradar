@@ -4,6 +4,7 @@ export interface Retailer {
   color: string;
   active: boolean;
   description: string;
+  icon?: string | null;
   productCount: number | null;
   lastUpdate: string | null;
   snapshotCount: number;

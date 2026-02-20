@@ -163,7 +163,12 @@ export default function SupermarketPage() {
           <Link to="/" className="text-sm text-slate-500 hover:text-slate-900 flex items-center gap-1 mb-2">
             <ArrowLeft className="h-4 w-4" /> Terug naar Dashboard
           </Link>
-          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900">{retailer.name}</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900 flex items-center gap-2">
+            {retailer.icon && (
+              <img src={retailer.icon} alt="" className="h-8 w-8 sm:h-10 sm:w-10 shrink-0 object-contain" />
+            )}
+            {retailer.name}
+          </h1>
           <p className="text-slate-500 mt-1">
             {products.length} producten
             {retailer.lastUpdate && ` · Laatste snapshot: ${new Date(retailer.lastUpdate).toLocaleDateString('nl-NL')}`}

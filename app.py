@@ -258,6 +258,7 @@ def api_retailers():
             "color": info["color"],
             "active": info["active"],
             "description": info.get("description", ""),
+            "icon": info.get("icon") or None,
             "productCount": last_snap["product_count"] if last_snap else None,
             "lastUpdate": last_snap["created_at"] if last_snap else None,
             "snapshotCount": stat.get("snapshot_count", 0),

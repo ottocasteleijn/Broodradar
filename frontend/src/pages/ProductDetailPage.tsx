@@ -175,7 +175,8 @@ export default function ProductDetailPage() {
     );
   }
 
-  const retailerName = retailers.find((r) => r.id === product.retailer)?.name ?? product.retailer;
+  const productRetailer = retailers.find((r) => r.id === product.retailer);
+  const retailerName = productRetailer?.name ?? product.retailer;
   const price = product.price != null ? Number(product.price) : null;
   const nutri = product.nutriscore && /^[A-E]$/i.test(product.nutriscore) ? product.nutriscore.toUpperCase() : null;
 
@@ -266,8 +267,11 @@ export default function ProductDetailPage() {
                 </span>
                 <Link
                   to={`/supermarket/${product.retailer}`}
-                  className="text-slate-900 hover:underline"
+                  className="inline-flex items-center gap-1.5 text-slate-900 hover:underline"
                 >
+                  {productRetailer?.icon && (
+                    <img src={productRetailer.icon} alt="" className="h-5 w-5 shrink-0 object-contain" />
+                  )}
                   {retailerName}
                 </Link>
               </div>
