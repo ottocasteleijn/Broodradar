@@ -6,6 +6,7 @@ import { useEffect, useState, useMemo } from "react";
 import { api, type CatalogProduct, type ProductHistoryEntry, type RecentChange, type Retailer } from "@/api/client";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { useFollowedProducts } from "@/hooks/useFollowedProducts";
+import { useChangesSince, toDatetimeLocalValue } from "@/hooks/useChangesSince";
 
 function formatShortDate(iso: string): string {
   try {
@@ -27,6 +28,7 @@ const EVENT_LABELS: Record<string, string> = {
 
 export default function DashboardPage() {
   const { followedIds, unfollow } = useFollowedProducts();
+  const { since, setSince } = useChangesSince();
   const [products, setProducts] = useState<(CatalogProduct | null)[]>([]);
   const [histories, setHistories] = useState<Record<string, ProductHistoryEntry | null>>({});
   const [retailers, setRetailers] = useState<Retailer[]>([]);
@@ -39,8 +41,9 @@ export default function DashboardPage() {
   }, []);
 
   useEffect(() => {
-    api.recentChanges(50).then(setRecentChanges).finally(() => setLoadingChanges(false));
-  }, []);
+    setLoadingChanges(true);
+    api.recentChanges(50, undefined, undefined, since).then(setRecentChanges).finally(() => setLoadingChanges(false));
+  }, [since]);
 
   useEffect(() => {
     if (followedIds.length === 0) {
@@ -72,12 +75,11 @@ export default function DashboardPage() {
     [products]
   );
 
-  const RECENT_DAYS = 14;
   const changesList = useMemo(() => {
-    const cutoff = Date.now() - RECENT_DAYS * 24 * 60 * 60 * 1000;
-    return recentChanges
-      .filter((item) => new Date(item.created_at).getTime() >= cutoff)
-      .map((item) => ({ product: item.product, entry: { id: item.id, product_id: item.product_id, snapshot_id: item.snapshot_id, event_type: item.event_type, changes: item.changes, price_at_snapshot: item.price_at_snapshot, created_at: item.created_at } }));
+    return recentChanges.map((item) => ({
+      product: item.product,
+      entry: { id: item.id, product_id: item.product_id, snapshot_id: item.snapshot_id, event_type: item.event_type, changes: item.changes, price_at_snapshot: item.price_at_snapshot, created_at: item.created_at },
+    }));
   }, [recentChanges]);
 
   const getRetailer = (retailerId: string) => retailers.find((r) => r.id === retailerId);
@@ -230,7 +232,20 @@ export default function DashboardPage() {
 
       {/* Sectie 2: Recente wijzigingen */}
       <section>
-        <h2 className="text-lg font-semibold text-slate-900 mb-4">Recente wijzigingen</h2>
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+          <h2 className="text-lg font-semibold text-slate-900">Recente wijzigingen</h2>
+          <label className="flex items-center gap-2 text-sm text-slate-600">
+            <span className="whitespace-nowrap">Sinds</span>
+            <input
+              type="datetime-local"
+              className="rounded-md border border-slate-200 bg-white px-2.5 py-1.5 text-sm text-slate-700 ring-offset-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-950 focus-visible:ring-offset-2"
+              value={toDatetimeLocalValue(since)}
+              onChange={(e) => {
+                if (e.target.value) setSince(new Date(e.target.value).toISOString());
+              }}
+            />
+          </label>
+        </div>
         {loadingChanges ? (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {Array.from({ length: 6 }).map((_, i) => (
@@ -248,7 +263,7 @@ export default function DashboardPage() {
             ))}
           </div>
         ) : changesList.length === 0 ? (
-          <p className="text-slate-500 text-sm">Geen recente wijzigingen in de afgelopen 14 dagen.</p>
+          <p className="text-slate-500 text-sm">Geen wijzigingen sinds het gekozen tijdstip.</p>
         ) : (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {changesList.map(({ product, entry }) => {

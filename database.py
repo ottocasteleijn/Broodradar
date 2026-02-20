@@ -513,7 +513,7 @@ def get_product_history(product_id, limit=50):
 DASHBOARD_EVENT_TYPES = ("price_change", "ingredients_change")
 
 
-def get_recent_changes(limit=50, retailer=None, event_type=None):
+def get_recent_changes(limit=50, retailer=None, event_type=None, since=None):
     """Haal recente product_history entries op met product_catalog info, nieuwste eerst.
     Alleen price_change en ingredients_change worden getoond op het dashboard."""
     if not _check_product_catalog():
@@ -528,6 +528,8 @@ def get_recent_changes(limit=50, retailer=None, event_type=None):
             .order("created_at", desc=True)
             .limit(fetch_limit)
         )
+        if since:
+            q = q.gte("created_at", since)
         if event_type:
             q = q.eq("event_type", event_type)
         rows = q.execute().data or []

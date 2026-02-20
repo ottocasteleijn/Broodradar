@@ -326,13 +326,14 @@ export const api = {
     });
   },
 
-  recentChanges: (limit?: number, retailer?: string, type?: string) => {
-    const key = `recentChanges:${limit ?? 50}:${retailer ?? ''}:${type ?? ''}`;
+  recentChanges: (limit?: number, retailer?: string, type?: string, since?: string) => {
+    const key = `recentChanges:${limit ?? 50}:${retailer ?? ''}:${type ?? ''}:${since ?? ''}`;
     return cached(key, CACHE_TTL.recentChanges, () => {
       const params = new URLSearchParams();
       if (limit != null) params.set('limit', String(limit));
       if (retailer) params.set('retailer', retailer);
       if (type) params.set('type', type);
+      if (since) params.set('since', since);
       const qs = params.toString();
       return request<RecentChange[]>(`/api/recent-changes${qs ? `?${qs}` : ''}`);
     });

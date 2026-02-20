@@ -27,6 +27,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setError(null);
     try {
       const data = await api.auth.login(em, pw);
+      const prev = localStorage.getItem('broodradar_last_login');
+      if (prev) {
+        localStorage.setItem('broodradar_previous_login', prev);
+      }
+      localStorage.setItem('broodradar_last_login', new Date().toISOString());
       setEmail(data.email);
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Inloggen mislukt.';

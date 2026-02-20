@@ -7,6 +7,7 @@ import { Skeleton } from "@/components/ui/Skeleton";
 import { Search, Heart, ChevronDown, Calendar } from "lucide-react";
 import { useState, useMemo, useEffect, useRef } from "react";
 import { useFollowedProducts } from "@/hooks/useFollowedProducts";
+import { useChangesSince, toDatetimeLocalValue } from "@/hooks/useChangesSince";
 
 function formatShortDate(iso: string | null): string {
   if (!iso) return "";
@@ -24,11 +25,12 @@ export default function ProductsPage() {
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [brandFilter, setBrandFilter] = useState("all");
-  /** Retailer ids that are enabled in the filter (show products from these). */
   const [retailerFilter, setRetailerFilter] = useState<Record<string, boolean>>({});
   const [supermarketDropdownOpen, setSupermarketDropdownOpen] = useState(false);
   const supermarketDropdownRef = useRef<HTMLDivElement>(null);
   const { isFollowed, toggle } = useFollowedProducts();
+  const { since, setSince } = useChangesSince();
+  const [changedProductIds, setChangedProductIds] = useState<Set<string> | null>(null);
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -71,15 +73,25 @@ export default function ProductsPage() {
       .finally(() => setLoading(false));
   }, [retailers]);
 
+  useEffect(() => {
+    api.recentChanges(200, undefined, undefined, since)
+      .then((changes) => {
+        const ids = new Set(changes.map((c) => c.product_id));
+        setChangedProductIds(ids);
+      })
+      .catch(() => setChangedProductIds(new Set()));
+  }, [since]);
+
   const filteredProducts = useMemo(() => {
     return products.filter((product) => {
       const matchesSearch = product.name.toLowerCase().includes(search.toLowerCase());
       const matchesCategory = categoryFilter === "all" || product.category === categoryFilter;
       const matchesBrand = brandFilter === "all" || product.brand === brandFilter;
       const matchesRetailer = retailerFilter[product.supermarketId] !== false;
-      return matchesSearch && matchesCategory && matchesBrand && matchesRetailer;
+      const matchesChanged = !changedProductIds || changedProductIds.has(product.catalogId ?? product.id);
+      return matchesSearch && matchesCategory && matchesBrand && matchesRetailer && matchesChanged;
     });
-  }, [products, search, categoryFilter, brandFilter, retailerFilter]);
+  }, [products, search, categoryFilter, brandFilter, retailerFilter, changedProductIds]);
 
   const categories = useMemo(
     () => Array.from(new Set(products.map((p) => p.category).filter(Boolean))).sort(),
@@ -124,7 +136,7 @@ export default function ProductsPage() {
 
       <Card className="border-slate-200 shadow-sm">
         <CardContent className="p-4">
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
             <div className="relative">
               <label className="block text-sm font-medium text-slate-700 mb-1">Zoeken</label>
               <Search className="absolute left-2.5 top-9 h-4 w-4 text-slate-400" />
@@ -201,6 +213,17 @@ export default function ProductsPage() {
                   ))}
                 </div>
               )}
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Wijzigingen sinds</label>
+              <input
+                type="datetime-local"
+                className="flex h-10 w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm ring-offset-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-950 focus-visible:ring-offset-2"
+                value={toDatetimeLocalValue(since)}
+                onChange={(e) => {
+                  if (e.target.value) setSince(new Date(e.target.value).toISOString());
+                }}
+              />
             </div>
           </div>
         </CardContent>

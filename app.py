@@ -407,7 +407,8 @@ def api_recent_changes():
     limit = min(max(limit, 1), 200)
     retailer = request.args.get("retailer", "").strip() or None
     event_type = request.args.get("type", "").strip() or None
-    changes = database.get_recent_changes(limit=limit, retailer=retailer, event_type=event_type)
+    since = request.args.get("since", "").strip() or None
+    changes = database.get_recent_changes(limit=limit, retailer=retailer, event_type=event_type, since=since)
     return jsonify(changes)
 
 
