@@ -13,6 +13,13 @@ RETAILERS = {
         "description": "De tweede supermarkt van Nederland",
         "icon": "/logos/jumbo.svg",
     },
+    "plus": {
+        "name": "Plus",
+        "color": "#6EBE44",
+        "active": True,
+        "description": "De buurt supermarkt van Nederland",
+        "icon": "/logos/plus.svg",
+    },
 }
 
 
@@ -24,6 +31,9 @@ def get_fetcher(slug):
     elif slug == "jumbo":
         from retailers import jumbo
         return jumbo
+    elif slug == "plus":
+        from retailers import plus
+        return plus
     raise ValueError(f"Onbekende retailer: {slug}")
 
 
