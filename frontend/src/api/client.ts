@@ -100,17 +100,27 @@ function toNumber(v: unknown): number {
   return Number.isNaN(n) ? 0 : n;
 }
 
+function toStr(v: unknown): string {
+  if (v == null) return '';
+  if (typeof v === 'object') return JSON.stringify(v);
+  return String(v);
+}
+
 function mapProduct(p: Record<string, unknown>): Product {
+  const nutri = typeof p.nutriscore === 'string' && /^[A-E]$/i.test(p.nutriscore)
+    ? p.nutriscore.toUpperCase() as Product['nutriscore']
+    : null;
+
   return {
-    id: String(p.id ?? ''),
-    supermarketId: String(p.retailer ?? ''),
-    image: String(p.image_url ?? ''),
-    name: String(p.title ?? ''),
-    brand: String(p.brand ?? ''),
+    id: toStr(p.id),
+    supermarketId: toStr(p.retailer),
+    image: toStr(p.image_url),
+    name: toStr(p.title),
+    brand: toStr(p.brand),
     price: toNumber(p.price),
-    unit: String(p.sales_unit_size ?? ''),
-    nutriscore: (p.nutriscore as Product['nutriscore']) || null,
-    category: String(p.sub_category ?? ''),
+    unit: toStr(p.sales_unit_size),
+    nutriscore: nutri,
+    category: toStr(p.sub_category),
     bonus: Boolean(p.is_bonus),
   };
 }
