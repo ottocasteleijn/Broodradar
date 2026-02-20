@@ -11,3 +11,5 @@ dist/
 .vercel/
 .cursor/
 Tijdelijk-design-broodradar/
+.vercel
+.env*.local
