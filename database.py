@@ -1,6 +1,9 @@
+import logging
 import os
 from datetime import datetime, timezone
 from supabase import create_client
+
+logger = logging.getLogger(__name__)
 
 _supabase = None
 _has_retailer_column = None
@@ -137,7 +140,6 @@ def _update_catalog_and_history(sb, retailer, snapshot_id, rows, has_retailer):
     all_webshop_ids = set(old_by_webshop.keys()) | set(new_by_webshop.keys())
     existing_list = []
     try:
-        # Supabase .in_() with large list may need batching
         wids = list(all_webshop_ids)
         for i in range(0, len(wids), 100):
             chunk = wids[i : i + 100]
@@ -149,6 +151,9 @@ def _update_catalog_and_history(sb, retailer, snapshot_id, rows, has_retailer):
 
     history_batch = []
     now_iso = datetime.now(timezone.utc).isoformat()
+    update_count = 0
+    insert_count = 0
+    seen_catalog_ids = []
 
     for webshop_id, new_data in new_by_webshop.items():
         catalog_row = _catalog_row_from_snapshot_product(new_data)
@@ -157,36 +162,49 @@ def _update_catalog_and_history(sb, retailer, snapshot_id, rows, has_retailer):
         price_at = new_data.get("price")
         if existing:
             product_id = existing["id"]
-            sb.table("product_catalog").update({
-                "title": catalog_row["title"],
-                "brand": catalog_row["brand"],
-                "price": catalog_row["price"],
-                "sales_unit_size": catalog_row["sales_unit_size"],
-                "unit_price_description": catalog_row["unit_price_description"],
-                "nutriscore": catalog_row["nutriscore"],
-                "main_category": catalog_row["main_category"],
-                "sub_category": catalog_row["sub_category"],
-                "image_url": catalog_row["image_url"],
-                "ingredients": catalog_row["ingredients"],
-                "is_bonus": catalog_row["is_bonus"],
-                "is_available": True,
-                "last_seen_at": now_iso,
-                "updated_at": now_iso,
-            }).eq("id", product_id).execute()
+            seen_catalog_ids.append(product_id)
+            if event_type != "unchanged":
+                sb.table("product_catalog").update({
+                    "title": catalog_row["title"],
+                    "brand": catalog_row["brand"],
+                    "price": catalog_row["price"],
+                    "sales_unit_size": catalog_row["sales_unit_size"],
+                    "unit_price_description": catalog_row["unit_price_description"],
+                    "nutriscore": catalog_row["nutriscore"],
+                    "main_category": catalog_row["main_category"],
+                    "sub_category": catalog_row["sub_category"],
+                    "image_url": catalog_row["image_url"],
+                    "ingredients": catalog_row["ingredients"],
+                    "is_bonus": catalog_row["is_bonus"],
+                    "is_available": True,
+                    "last_seen_at": now_iso,
+                    "updated_at": now_iso,
+                }).eq("id", product_id).execute()
+                update_count += 1
         else:
             ins = sb.table("product_catalog").insert(catalog_row).execute()
             if ins.data:
                 product_id = ins.data[0]["id"]
+                insert_count += 1
             else:
                 continue
-        history_batch.append({
-            "product_id": product_id,
-            "snapshot_id": snapshot_id,
-            "event_type": event_type,
-            "changes": changes,
-            "price_at_snapshot": price_at,
-        })
+        if event_type != "unchanged":
+            history_batch.append({
+                "product_id": product_id,
+                "snapshot_id": snapshot_id,
+                "event_type": event_type,
+                "changes": changes,
+                "price_at_snapshot": price_at,
+            })
 
+    # Bulk update last_seen_at for all seen products (batches of 200)
+    for i in range(0, len(seen_catalog_ids), 200):
+        chunk = seen_catalog_ids[i : i + 200]
+        sb.table("product_catalog").update({
+            "last_seen_at": now_iso,
+        }).in_("id", chunk).execute()
+
+    removed_count = 0
     for webshop_id in set(old_by_webshop.keys()) - set(new_by_webshop.keys()):
         existing = existing_by_webshop.get(webshop_id)
         if not existing:
@@ -203,9 +221,15 @@ def _update_catalog_and_history(sb, retailer, snapshot_id, rows, has_retailer):
             "changes": {},
             "price_at_snapshot": None,
         })
+        removed_count += 1
 
     for i in range(0, len(history_batch), 500):
         sb.table("product_history").insert(history_batch[i : i + 500]).execute()
+
+    logger.info(
+        "catalog update %s: %d updated, %d inserted, %d removed, %d history entries",
+        retailer, update_count, insert_count, removed_count, len(history_batch),
+    )
 
 
 def create_snapshot(products, retailer="ah", label=None):
@@ -267,8 +291,8 @@ def create_snapshot(products, retailer="ah", label=None):
     if _check_product_catalog():
         try:
             _update_catalog_and_history(sb, retailer, snapshot_id, rows, has_retailer)
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.exception("catalog update failed for %s snapshot %s: %s", retailer, snapshot_id, exc)
     return snapshot_id
 
 
