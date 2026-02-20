@@ -94,18 +94,24 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
   return res.json();
 }
 
+function toNumber(v: unknown): number {
+  if (typeof v === 'number' && !Number.isNaN(v)) return v;
+  const n = Number(v);
+  return Number.isNaN(n) ? 0 : n;
+}
+
 function mapProduct(p: Record<string, unknown>): Product {
   return {
-    id: p.id as string,
-    supermarketId: (p.retailer as string) || '',
-    image: (p.image_url as string) || '',
-    name: (p.title as string) || '',
-    brand: (p.brand as string) || '',
-    price: typeof p.price === 'number' ? p.price : parseFloat(p.price as string) || 0,
-    unit: (p.sales_unit_size as string) || '',
+    id: String(p.id ?? ''),
+    supermarketId: String(p.retailer ?? ''),
+    image: String(p.image_url ?? ''),
+    name: String(p.title ?? ''),
+    brand: String(p.brand ?? ''),
+    price: toNumber(p.price),
+    unit: String(p.sales_unit_size ?? ''),
     nutriscore: (p.nutriscore as Product['nutriscore']) || null,
-    category: (p.sub_category as string) || '',
-    bonus: (p.is_bonus as boolean) || false,
+    category: String(p.sub_category ?? ''),
+    bonus: Boolean(p.is_bonus),
   };
 }
 

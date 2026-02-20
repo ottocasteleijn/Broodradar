@@ -242,7 +242,7 @@ export default function SupermarketPage() {
                     </div>
                   </td>
                   <td className="px-6 py-4 text-slate-600">{product.brand}</td>
-                  <td className="px-6 py-4 font-medium text-slate-900">€{product.price.toFixed(2)}</td>
+                  <td className="px-6 py-4 font-medium text-slate-900">€{(product.price ?? 0).toFixed(2)}</td>
                   <td className="px-6 py-4 text-slate-500">{product.unit}</td>
                   <td className="px-6 py-4">
                     {product.nutriscore && (
