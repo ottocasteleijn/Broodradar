@@ -405,47 +405,66 @@ export default function ProductDetailPage() {
           {displayHistory.length === 0 ? (
             <p className="text-slate-500 text-sm">Nog geen geschiedenis voor dit product.</p>
           ) : (
-            displayHistory.map((entry, idx) => (
-              <div
-                key={entry.id}
-                className="flex gap-3 sm:gap-4 pb-4 sm:pb-6 last:pb-0"
-              >
-                <div className="flex flex-col items-center shrink-0">
-                  <div
-                    className={`rounded-full px-2 py-0.5 sm:px-2.5 sm:py-1 text-[10px] sm:text-xs font-medium whitespace-nowrap ${eventBadgeClass(entry.event_type)}`}
-                  >
-                    {EVENT_LABELS[entry.event_type] ?? entry.event_type}
-                  </div>
-                  {idx < displayHistory.length - 1 && (
-                    <div className="w-px flex-1 min-h-[1rem] mt-2 bg-slate-200" />
-                  )}
-                </div>
-                <div className="min-w-0 flex-1 pt-0.5 overflow-hidden">
-                  <p className="text-sm text-slate-600 break-words">
-                    {formatHistoryDescription(entry)}
-                  </p>
-                  <p className="text-xs text-slate-400 mt-1 break-words">
-                    {formatDate(entry.created_at)}
-                    {entry.snapshot_id && entry.id !== "_first_seen" && (
-                      <>
-                        {" · "}
-                        <Link
-                          to={`/snapshots?snapshot=${entry.snapshot_id}`}
-                          className="text-slate-500 hover:underline"
-                        >
-                          Snapshot
-                        </Link>
-                      </>
+            displayHistory.map((entry, idx) => {
+              const hasSnapshot = Boolean(entry.snapshot_id && entry.id !== "_first_seen");
+              const isCurrentVersion = isVersionMode && entry.snapshot_id === snapshotIdParam;
+              const entryContent = (
+                <>
+                  <div className="flex flex-col items-center shrink-0">
+                    <div
+                      className={`rounded-full px-2 py-0.5 sm:px-2.5 sm:py-1 text-[10px] sm:text-xs font-medium whitespace-nowrap ${eventBadgeClass(entry.event_type)}`}
+                    >
+                      {EVENT_LABELS[entry.event_type] ?? entry.event_type}
+                    </div>
+                    {idx < displayHistory.length - 1 && (
+                      <div className="w-px flex-1 min-h-[1rem] mt-2 bg-slate-200" />
                     )}
-                  </p>
-                  {entry.price_at_snapshot != null && (
-                    <p className="text-xs text-slate-500 mt-0.5">
-                      Prijs bij snapshot: €{Number(entry.price_at_snapshot).toFixed(2)}
+                  </div>
+                  <div className="min-w-0 flex-1 pt-0.5 overflow-hidden">
+                    <p className="text-sm text-slate-600 break-words">
+                      {formatHistoryDescription(entry)}
                     </p>
+                    <p className="text-xs text-slate-400 mt-1 break-words">
+                      {formatDate(entry.created_at)}
+                      {hasSnapshot && (
+                        <>
+                          {" · "}
+                          <Link
+                            to={`/snapshots?snapshot=${entry.snapshot_id}`}
+                            className="text-slate-500 hover:underline"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            Snapshot
+                          </Link>
+                        </>
+                      )}
+                    </p>
+                    {entry.price_at_snapshot != null && (
+                      <p className="text-xs text-slate-500 mt-0.5">
+                        Prijs bij snapshot: €{Number(entry.price_at_snapshot).toFixed(2)}
+                      </p>
+                    )}
+                  </div>
+                </>
+              );
+              return (
+                <div
+                  key={entry.id}
+                  className={`flex gap-3 sm:gap-4 pb-4 sm:pb-6 last:pb-0 ${isCurrentVersion ? "rounded-lg bg-slate-100 ring-1 ring-slate-200 -mx-1 px-3 py-2" : ""} ${hasSnapshot && !isCurrentVersion ? "cursor-pointer hover:bg-slate-50 rounded-lg -mx-1 px-3 py-2" : ""}`}
+                >
+                  {hasSnapshot ? (
+                    <Link
+                      to={`/product/${product.id}/versie/${entry.snapshot_id}`}
+                      className="flex gap-3 sm:gap-4 min-w-0 flex-1 items-start no-underline text-inherit"
+                    >
+                      {entryContent}
+                    </Link>
+                  ) : (
+                    entryContent
                   )}
                 </div>
-              </div>
-            ))
+              );
+            })
           )}
         </div>
       </div>
