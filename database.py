@@ -289,6 +289,24 @@ def get_latest_snapshot_products(retailer="ah"):
     return get_snapshot_products(snapshots[0]["id"])
 
 
+def get_catalog_products(retailer):
+    """Producten uit product_catalog voor een retailer (eigen database, met historie op snapshots)."""
+    if not _check_product_catalog():
+        return []
+    sb = _get_client()
+    try:
+        r = (
+            sb.table("product_catalog")
+            .select("id, retailer, webshop_id, title, brand, price, sales_unit_size, unit_price_description, nutriscore, sub_category, image_url, is_bonus")
+            .eq("retailer", retailer)
+            .order("title")
+            .execute()
+        )
+        return r.data or []
+    except Exception:
+        return []
+
+
 def compare_snapshots(old_id, new_id):
     """Vergelijk twee snapshots. Retourneert dict met wijzigingen."""
     old_products = {p["webshop_id"]: p for p in get_snapshot_products(old_id)}

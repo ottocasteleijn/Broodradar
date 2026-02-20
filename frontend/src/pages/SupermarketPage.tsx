@@ -263,13 +263,13 @@ export default function SupermarketPage() {
       {/* Product cards (alle schermen) */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         {filteredProducts.map((product) => {
-          const productUrl = product.catalogId
-            ? `/product/${product.catalogId}`
+          const productUrl = product.id
+            ? `/product/${product.id}`
             : product.webshopId && id
               ? `/product/ref/${id}/${encodeURIComponent(product.webshopId)}`
               : null;
-          const canFollow = Boolean(product.catalogId);
-          const followed = isFollowed(product.catalogId);
+          const canFollow = Boolean(product.id);
+          const followed = isFollowed(product.id);
           const cardContent = (
             <div className="flex gap-3">
               {product.image ? (
@@ -327,7 +327,7 @@ export default function SupermarketPage() {
                     onClick={(e) => {
                       e.preventDefault();
                       e.stopPropagation();
-                      toggle(product.catalogId);
+                      toggle(product.id);
                     }}
                     className="absolute top-3 right-3 p-1.5 rounded-md text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors"
                     aria-label={followed ? "Niet meer volgen" : "Volgen"}

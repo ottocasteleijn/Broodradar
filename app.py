@@ -289,10 +289,7 @@ def api_refresh_all():
 def api_retailer_products(slug):
     if slug not in RETAILERS:
         return jsonify({"error": "Retailer niet gevonden"}), 404
-    products = database.get_latest_snapshot_products(retailer=slug)
-    catalog_ids = database.get_catalog_ids_for_webshop_ids(slug, [p.get("webshop_id") for p in products if p.get("webshop_id")])
-    for p in products:
-        p["catalog_id"] = catalog_ids.get(p.get("webshop_id"))
+    products = database.get_catalog_products(slug)
     return jsonify(products)
 
 

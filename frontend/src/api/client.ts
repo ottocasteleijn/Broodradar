@@ -174,7 +174,7 @@ function mapProduct(p: Record<string, unknown>): Product {
   return {
     id: toStr(p.id),
     supermarketId: toStr(p.retailer),
-    catalogId: (p.catalog_id as string) ?? null,
+    catalogId: (p.catalog_id as string) ?? toStr(p.id),
     webshopId: toStr(p.webshop_id),
     image: toStr(p.image_url),
     name: toStr(p.title),
