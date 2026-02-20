@@ -4,8 +4,8 @@ import { Input } from "@/components/ui/Input";
 import { Badge } from "@/components/ui/Badge";
 import { Card, CardContent } from "@/components/ui/Card";
 import { Skeleton } from "@/components/ui/Skeleton";
-import { Search, Heart } from "lucide-react";
-import { useState, useMemo, useEffect } from "react";
+import { Search, Heart, ChevronDown } from "lucide-react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { useFollowedProducts } from "@/hooks/useFollowedProducts";
 
 export default function ProductsPage() {
@@ -17,7 +17,21 @@ export default function ProductsPage() {
   const [brandFilter, setBrandFilter] = useState("all");
   /** Retailer ids that are enabled in the filter (show products from these). */
   const [retailerFilter, setRetailerFilter] = useState<Record<string, boolean>>({});
+  const [supermarketDropdownOpen, setSupermarketDropdownOpen] = useState(false);
+  const supermarketDropdownRef = useRef<HTMLDivElement>(null);
   const { isFollowed, toggle } = useFollowedProducts();
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (supermarketDropdownRef.current && !supermarketDropdownRef.current.contains(e.target as Node)) {
+        setSupermarketDropdownOpen(false);
+      }
+    }
+    if (supermarketDropdownOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+      return () => document.removeEventListener("mousedown", handleClickOutside);
+    }
+  }, [supermarketDropdownOpen]);
 
   useEffect(() => {
     api.retailers()
@@ -77,6 +91,21 @@ export default function ProductsPage() {
     setRetailerFilter((prev) => ({ ...prev, [retailerId]: !prev[retailerId] }));
   };
 
+  const activeRetailers = useMemo(
+    () => retailers.filter((r) => r.active),
+    [retailers]
+  );
+  const selectedRetailerCount = useMemo(
+    () => activeRetailers.filter((r) => retailerFilter[r.id] !== false).length,
+    [activeRetailers, retailerFilter]
+  );
+  const supermarketDropdownLabel =
+    selectedRetailerCount === 0
+      ? "Geen supermarkten"
+      : selectedRetailerCount === activeRetailers.length
+        ? "Alle supermarkten"
+        : `${selectedRetailerCount} van ${activeRetailers.length} geselecteerd`;
+
   return (
     <div className="space-y-6">
       <div>
@@ -123,27 +152,46 @@ export default function ProductsPage() {
                 ))}
               </select>
             </div>
-            <div>
+            <div ref={supermarketDropdownRef} className="relative">
               <label className="block text-sm font-medium text-slate-700 mb-1">Supermarkten</label>
-              <div className="flex flex-wrap gap-2 mt-1">
-                {retailers.filter((r) => r.active).map((r) => (
-                  <label
-                    key={r.id}
-                    className="inline-flex items-center gap-1.5 cursor-pointer rounded-full border px-3 py-1.5 text-sm transition-colors border-slate-200 bg-white hover:bg-slate-50 has-[:checked]:border-slate-400 has-[:checked]:bg-slate-100"
-                  >
-                    {r.icon && (
-                      <img src={r.icon} alt="" className="h-4 w-4 shrink-0 object-contain" />
-                    )}
-                    <input
-                      type="checkbox"
-                      checked={retailerFilter[r.id] !== false}
-                      onChange={() => toggleRetailerFilter(r.id)}
-                      className="rounded border-slate-300 text-slate-900 focus:ring-slate-500"
-                    />
-                    <span className="text-slate-700">{r.name}</span>
-                  </label>
-                ))}
-              </div>
+              <button
+                type="button"
+                onClick={() => setSupermarketDropdownOpen((open) => !open)}
+                className="flex h-10 w-full items-center justify-between rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-left ring-offset-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-950 focus-visible:ring-offset-2 hover:bg-slate-50"
+                aria-expanded={supermarketDropdownOpen}
+                aria-haspopup="listbox"
+              >
+                <span className="text-slate-700 truncate">{supermarketDropdownLabel}</span>
+                <ChevronDown
+                  className={`h-4 w-4 shrink-0 text-slate-400 transition-transform ${supermarketDropdownOpen ? "rotate-180" : ""}`}
+                />
+              </button>
+              {supermarketDropdownOpen && (
+                <div
+                  className="absolute top-full left-0 right-0 z-10 mt-1 max-h-60 overflow-auto rounded-md border border-slate-200 bg-white py-1 shadow-lg"
+                  role="listbox"
+                >
+                  {activeRetailers.map((r) => (
+                    <label
+                      key={r.id}
+                      className="flex cursor-pointer items-center gap-2 px-3 py-2 text-sm hover:bg-slate-50"
+                      role="option"
+                      aria-selected={retailerFilter[r.id] !== false}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={retailerFilter[r.id] !== false}
+                        onChange={() => toggleRetailerFilter(r.id)}
+                        className="rounded border-slate-300 text-slate-900 focus:ring-slate-500"
+                      />
+                      {r.icon && (
+                        <img src={r.icon} alt="" className="h-4 w-4 shrink-0 object-contain" />
+                      )}
+                      <span className="text-slate-700">{r.name}</span>
+                    </label>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         </CardContent>
