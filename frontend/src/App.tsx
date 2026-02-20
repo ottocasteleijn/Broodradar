@@ -8,6 +8,7 @@ import SupermarketPage from "@/pages/SupermarketPage";
 import TimelinePage from "@/pages/TimelinePage";
 import SnapshotsPage from "@/pages/SnapshotsPage";
 import ComparePage from "@/pages/ComparePage";
+import ProductDetailPage from "@/pages/ProductDetailPage";
 import type { ReactNode } from "react";
 
 function ProtectedRoute({ children }: { children: ReactNode }) {
@@ -42,6 +43,7 @@ export default function App() {
               <Route path="/timeline" element={<TimelinePage />} />
               <Route path="/snapshots" element={<SnapshotsPage />} />
               <Route path="/vergelijk" element={<ComparePage />} />
+              <Route path="/product/:id" element={<ProductDetailPage />} />
             </Route>
           </Routes>
         </AuthProvider>

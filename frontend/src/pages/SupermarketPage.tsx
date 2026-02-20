@@ -117,7 +117,7 @@ export default function SupermarketPage() {
           <Link to="/" className="text-sm text-slate-500 hover:text-slate-900 flex items-center gap-1 mb-2">
             <ArrowLeft className="h-4 w-4" /> Terug naar Dashboard
           </Link>
-          <h1 className="text-3xl font-bold tracking-tight text-slate-900">{retailer.name}</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900">{retailer.name}</h1>
           <p className="text-slate-500 mt-1">
             {products.length} producten
             {retailer.lastUpdate && ` · Laatste snapshot: ${new Date(retailer.lastUpdate).toLocaleDateString('nl-NL')}`}
@@ -207,8 +207,70 @@ export default function SupermarketPage() {
         </CardContent>
       </Card>
 
-      {/* Table */}
-      <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+      {/* Mobile: product cards */}
+      <div className="md:hidden space-y-3">
+        {filteredProducts.map((product) => (
+          <Card key={product.id} className="border-slate-200 shadow-sm">
+            <CardContent className="p-4">
+              <div className="flex gap-3">
+                {product.image ? (
+                  <img
+                    src={product.image}
+                    alt={product.name}
+                    className="h-12 w-12 rounded-md object-cover border border-slate-100 shrink-0"
+                  />
+                ) : (
+                  <div className="h-12 w-12 rounded-md bg-slate-100 flex items-center justify-center text-slate-400 text-xs shrink-0">
+                    —
+                  </div>
+                )}
+                <div className="min-w-0 flex-1">
+                  {product.catalogId ? (
+                    <Link to={`/product/${product.catalogId}`} className="font-medium text-slate-900 truncate hover:underline block">
+                      {product.name}
+                    </Link>
+                  ) : (
+                    <p className="font-medium text-slate-900 truncate">{product.name}</p>
+                  )}
+                  <p className="text-sm text-slate-500 mt-0.5">
+                    {product.brand && <span>{product.brand}</span>}
+                    {product.brand && product.category && " · "}
+                    {product.category && <span>{product.category}</span>}
+                  </p>
+                  <div className="flex items-center gap-2 mt-2 flex-wrap">
+                    <span className="font-medium text-slate-900">€{(product.price ?? 0).toFixed(2)}</span>
+                    {product.unit && <span className="text-slate-500 text-sm">{product.unit}</span>}
+                    {product.nutriscore && (
+                      <span
+                        className={`inline-flex items-center justify-center w-6 h-6 rounded text-xs font-bold text-white ${
+                          product.nutriscore === 'A' ? 'bg-emerald-600' :
+                          product.nutriscore === 'B' ? 'bg-emerald-400' :
+                          product.nutriscore === 'C' ? 'bg-yellow-400' :
+                          product.nutriscore === 'D' ? 'bg-orange-400' :
+                          'bg-red-500'
+                        }`}
+                      >
+                        {product.nutriscore}
+                      </span>
+                    )}
+                    {product.bonus && (
+                      <Badge className="bg-orange-500 hover:bg-orange-600 text-white border-none">
+                        Bonus
+                      </Badge>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+        <div className="px-4 py-3 border-t border-slate-200 bg-slate-50 text-xs text-slate-500 rounded-b-xl">
+          Toont {filteredProducts.length} producten
+        </div>
+      </div>
+
+      {/* Desktop: table */}
+      <div className="hidden md:block rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm text-left">
             <thead className="bg-slate-50 text-slate-500 font-medium border-b border-slate-200">
@@ -238,7 +300,13 @@ export default function SupermarketPage() {
                           —
                         </div>
                       )}
-                      <span className="font-medium text-slate-900">{product.name}</span>
+                      {product.catalogId ? (
+                        <Link to={`/product/${product.catalogId}`} className="font-medium text-slate-900 hover:underline">
+                          {product.name}
+                        </Link>
+                      ) : (
+                        <span className="font-medium text-slate-900">{product.name}</span>
+                      )}
                     </div>
                   </td>
                   <td className="px-6 py-4 text-slate-600">{product.brand}</td>

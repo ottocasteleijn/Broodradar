@@ -60,13 +60,13 @@ export default function TimelinePage() {
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight text-slate-900">Tijdlijn</h1>
+        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900">Tijdlijn</h1>
         <p className="text-slate-500 mt-2">Volg wijzigingen in het broodassortiment.</p>
       </div>
 
-      <div className="flex gap-4 mb-8">
+      <div className="flex flex-col sm:flex-row gap-4 mb-8">
         <select
-          className="flex h-10 w-[200px] rounded-md border border-slate-200 bg-white px-3 py-2 text-sm ring-offset-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-950 focus-visible:ring-offset-2"
+          className="flex h-10 w-full sm:w-[200px] rounded-md border border-slate-200 bg-white px-3 py-2 text-sm ring-offset-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-950 focus-visible:ring-offset-2"
           value={retailerFilter}
           onChange={(e) => setRetailerFilter(e.target.value)}
         >
@@ -76,7 +76,7 @@ export default function TimelinePage() {
           ))}
         </select>
         <select
-          className="flex h-10 w-[200px] rounded-md border border-slate-200 bg-white px-3 py-2 text-sm ring-offset-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-950 focus-visible:ring-offset-2"
+          className="flex h-10 w-full sm:w-[200px] rounded-md border border-slate-200 bg-white px-3 py-2 text-sm ring-offset-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-950 focus-visible:ring-offset-2"
           value={typeFilter}
           onChange={(e) => setTypeFilter(e.target.value)}
         >
@@ -108,28 +108,30 @@ export default function TimelinePage() {
             const details = event.details as Record<string, unknown>;
             return (
               <Card key={event.id} className="border-slate-200 shadow-sm">
-                <CardContent className="flex items-center gap-4 p-4">
-                  <div className={`rounded-full p-2 ${EventBadgeColor(event.event_type)}`}>
-                    <EventIcon type={event.event_type} />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="font-medium text-slate-900 truncate">{event.product_title}</span>
-                      <Badge className={`${EventBadgeColor(event.event_type)} border-none text-xs`}>
-                        {eventTypeLabels[event.event_type] || event.event_type}
-                      </Badge>
+                <CardContent className="flex flex-col sm:flex-row sm:items-center gap-4 p-4">
+                  <div className="flex items-start gap-4 sm:items-center">
+                    <div className={`rounded-full p-2 shrink-0 ${EventBadgeColor(event.event_type)}`}>
+                      <EventIcon type={event.event_type} />
                     </div>
-                    <div className="text-sm text-slate-500">
-                      {retailerName}
-                      {event.event_type === 'price_change' && details.old_price != null && (
-                        <span>
-                          {' '}· €{Number(details.old_price).toFixed(2)} → €{Number(details.new_price).toFixed(2)}
-                          {' '}({Number(details.pct_change) > 0 ? '+' : ''}{Number(details.pct_change).toFixed(1)}%)
-                        </span>
-                      )}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex flex-wrap items-center gap-2 mb-1">
+                        <span className="font-medium text-slate-900 truncate">{event.product_title}</span>
+                        <Badge className={`${EventBadgeColor(event.event_type)} border-none text-xs shrink-0`}>
+                          {eventTypeLabels[event.event_type] || event.event_type}
+                        </Badge>
+                      </div>
+                      <div className="text-sm text-slate-500">
+                        {retailerName}
+                        {event.event_type === 'price_change' && details.old_price != null && (
+                          <span>
+                            {' '}· €{Number(details.old_price).toFixed(2)} → €{Number(details.new_price).toFixed(2)}
+                            {' '}({Number(details.pct_change) > 0 ? '+' : ''}{Number(details.pct_change).toFixed(1)}%)
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </div>
-                  <div className="text-xs text-slate-400 whitespace-nowrap">
+                  <div className="text-xs text-slate-400 sm:ml-auto sm:shrink-0">
                     {new Date(event.created_at).toLocaleDateString('nl-NL', {
                       day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit',
                     })}

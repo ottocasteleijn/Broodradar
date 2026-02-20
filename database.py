@@ -1,8 +1,10 @@
 import os
+from datetime import datetime, timezone
 from supabase import create_client
 
 _supabase = None
 _has_retailer_column = None
+_has_product_catalog = None
 
 
 def _get_client():
@@ -40,6 +42,161 @@ def _check_retailer_column():
     except Exception:
         _has_retailer_column = False
     return _has_retailer_column
+
+
+def _check_product_catalog():
+    """Check of product_catalog tabel bestaat."""
+    global _has_product_catalog
+    if _has_product_catalog is not None:
+        return _has_product_catalog
+    sb = _get_client()
+    try:
+        sb.table("product_catalog").select("id").limit(1).execute()
+        _has_product_catalog = True
+    except Exception:
+        _has_product_catalog = False
+    return _has_product_catalog
+
+
+def _catalog_row_from_snapshot_product(r):
+    """Maak een product_catalog rij uit een snapshot-product dict (zoals in create_snapshot)."""
+    return {
+        "retailer": r.get("retailer", "ah"),
+        "webshop_id": r.get("webshop_id") or "",
+        "title": r.get("title"),
+        "brand": r.get("brand"),
+        "price": r.get("price"),
+        "sales_unit_size": r.get("sales_unit_size"),
+        "unit_price_description": r.get("unit_price_description"),
+        "nutriscore": r.get("nutriscore"),
+        "main_category": r.get("main_category"),
+        "sub_category": r.get("sub_category"),
+        "image_url": r.get("image_url"),
+        "is_bonus": bool(r.get("is_bonus", False)),
+        "is_available": True,
+    }
+
+
+def _detect_changes(old_row, new_data):
+    """Vergelijk oude catalog row met nieuwe data. Retourneert (event_type, changes dict)."""
+    changes = {}
+    if old_row is None:
+        return "first_seen", changes
+
+    old_price = float(old_row["price"]) if old_row.get("price") is not None else None
+    new_price = float(new_data["price"]) if new_data.get("price") is not None else None
+    if old_price != new_price:
+        changes["price"] = {"old": old_price, "new": new_price}
+        if old_price and new_price:
+            changes["price"]["pct_change"] = round((new_price - old_price) / old_price * 100, 1)
+
+    old_title = (old_row.get("title") or "").strip()
+    new_title = (new_data.get("title") or "").strip()
+    if old_title != new_title:
+        changes["title"] = {"old": old_title or None, "new": new_title or None}
+
+    old_bonus = bool(old_row.get("is_bonus", False))
+    new_bonus = bool(new_data.get("is_bonus", False))
+    if old_bonus != new_bonus:
+        changes["bonus"] = {"old": old_bonus, "new": new_bonus}
+
+    if not changes:
+        return "unchanged", {}
+    if "price" in changes and "title" not in changes and "bonus" not in changes:
+        return "price_change", changes
+    if "title" in changes and "price" not in changes and "bonus" not in changes:
+        return "title_change", changes
+    if "bonus" in changes and "price" not in changes and "title" not in changes:
+        return "bonus_change", changes
+    return "multi_change", changes
+
+
+def _update_catalog_and_history(sb, retailer, snapshot_id, rows, has_retailer):
+    """Na snapshot insert: upsert product_catalog en schrijf product_history."""
+    if not rows:
+        return
+    new_by_webshop = {r["webshop_id"]: r for r in rows if r.get("webshop_id")}
+    if not new_by_webshop:
+        return
+
+    snapshots = get_snapshots(retailer)
+    old_by_webshop = {}
+    if len(snapshots) >= 2:
+        prev_snapshot_id = snapshots[1]["id"]
+        old_products = get_snapshot_products(prev_snapshot_id)
+        old_by_webshop = {p["webshop_id"]: p for p in old_products if p.get("webshop_id")}
+
+    all_webshop_ids = set(old_by_webshop.keys()) | set(new_by_webshop.keys())
+    existing_list = []
+    try:
+        # Supabase .in_() with large list may need batching
+        wids = list(all_webshop_ids)
+        for i in range(0, len(wids), 100):
+            chunk = wids[i : i + 100]
+            r = sb.table("product_catalog").select("*").eq("retailer", retailer).in_("webshop_id", chunk).execute()
+            existing_list.extend(r.data)
+    except Exception:
+        existing_list = []
+    existing_by_webshop = {row["webshop_id"]: row for row in existing_list}
+
+    history_batch = []
+    now_iso = datetime.now(timezone.utc).isoformat()
+
+    for webshop_id, new_data in new_by_webshop.items():
+        catalog_row = _catalog_row_from_snapshot_product(new_data)
+        existing = existing_by_webshop.get(webshop_id)
+        event_type, changes = _detect_changes(existing, new_data)
+        price_at = new_data.get("price")
+        if existing:
+            product_id = existing["id"]
+            sb.table("product_catalog").update({
+                "title": catalog_row["title"],
+                "brand": catalog_row["brand"],
+                "price": catalog_row["price"],
+                "sales_unit_size": catalog_row["sales_unit_size"],
+                "unit_price_description": catalog_row["unit_price_description"],
+                "nutriscore": catalog_row["nutriscore"],
+                "main_category": catalog_row["main_category"],
+                "sub_category": catalog_row["sub_category"],
+                "image_url": catalog_row["image_url"],
+                "is_bonus": catalog_row["is_bonus"],
+                "is_available": True,
+                "last_seen_at": now_iso,
+                "updated_at": now_iso,
+            }).eq("id", product_id).execute()
+        else:
+            ins = sb.table("product_catalog").insert(catalog_row).execute()
+            if ins.data:
+                product_id = ins.data[0]["id"]
+            else:
+                continue
+        history_batch.append({
+            "product_id": product_id,
+            "snapshot_id": snapshot_id,
+            "event_type": event_type,
+            "changes": changes,
+            "price_at_snapshot": price_at,
+        })
+
+    for webshop_id in set(old_by_webshop.keys()) - set(new_by_webshop.keys()):
+        existing = existing_by_webshop.get(webshop_id)
+        if not existing:
+            continue
+        product_id = existing["id"]
+        sb.table("product_catalog").update({
+            "is_available": False,
+            "updated_at": now_iso,
+        }).eq("id", product_id).execute()
+        history_batch.append({
+            "product_id": product_id,
+            "snapshot_id": snapshot_id,
+            "event_type": "removed",
+            "changes": {},
+            "price_at_snapshot": None,
+        })
+
+    for i in range(0, len(history_batch), 500):
+        sb.table("product_history").insert(history_batch[i : i + 500]).execute()
 
 
 def create_snapshot(products, retailer="ah", label=None):
@@ -97,6 +254,11 @@ def create_snapshot(products, retailer="ah", label=None):
         sb.table("products").insert(batch).execute()
 
     _generate_timeline_events(retailer, snapshot_id)
+    if _check_product_catalog():
+        try:
+            _update_catalog_and_history(sb, retailer, snapshot_id, rows, has_retailer)
+        except Exception:
+            pass
     return snapshot_id
 
 
@@ -263,3 +425,72 @@ def get_retailer_stats():
             "snapshot_count": len(retailer_snaps),
         }
     return stats
+
+
+def get_product(product_id):
+    """Haal een product_catalog record op op basis van id. Retourneert None als niet gevonden."""
+    if not _check_product_catalog():
+        return None
+    sb = _get_client()
+    try:
+        r = sb.table("product_catalog").select("*").eq("id", product_id).limit(1).execute()
+        return r.data[0] if r.data else None
+    except Exception:
+        return None
+
+
+def get_product_history(product_id, limit=50):
+    """Haal product_history entries op voor een product, nieuwste eerst."""
+    if not _check_product_catalog():
+        return []
+    sb = _get_client()
+    try:
+        r = (
+            sb.table("product_history")
+            .select("*")
+            .eq("product_id", product_id)
+            .order("created_at", desc=True)
+            .limit(limit)
+            .execute()
+        )
+        return r.data or []
+    except Exception:
+        return []
+
+
+def get_product_by_webshop_id(retailer, webshop_id):
+    """Lookup product_catalog op basis van retailer en webshop_id. Retourneert None als niet gevonden."""
+    if not _check_product_catalog():
+        return None
+    sb = _get_client()
+    try:
+        r = (
+            sb.table("product_catalog")
+            .select("*")
+            .eq("retailer", retailer)
+            .eq("webshop_id", webshop_id)
+            .limit(1)
+            .execute()
+        )
+        return r.data[0] if r.data else None
+    except Exception:
+        return None
+
+
+def get_catalog_ids_for_webshop_ids(retailer, webshop_ids):
+    """Geef een dict webshop_id -> catalog id voor de opgegeven retailer en webshop_ids."""
+    if not _check_product_catalog() or not webshop_ids:
+        return {}
+    sb = _get_client()
+    wids = list(set(webshop_ids))[:500]
+    try:
+        r = (
+            sb.table("product_catalog")
+            .select("id, webshop_id")
+            .eq("retailer", retailer)
+            .in_("webshop_id", wids)
+            .execute()
+        )
+        return {row["webshop_id"]: row["id"] for row in (r.data or [])}
+    except Exception:
+        return {}

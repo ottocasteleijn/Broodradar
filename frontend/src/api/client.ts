@@ -12,6 +12,7 @@ export interface Retailer {
 export interface Product {
   id: string;
   supermarketId: string;
+  catalogId: string | null;
   image: string;
   name: string;
   brand: string;
@@ -20,6 +21,37 @@ export interface Product {
   nutriscore: 'A' | 'B' | 'C' | 'D' | 'E' | null;
   category: string;
   bonus: boolean;
+}
+
+export interface CatalogProduct {
+  id: string;
+  retailer: string;
+  webshop_id: string;
+  title: string | null;
+  brand: string | null;
+  price: number | null;
+  sales_unit_size: string | null;
+  unit_price_description: string | null;
+  nutriscore: string | null;
+  main_category: string | null;
+  sub_category: string | null;
+  image_url: string | null;
+  is_bonus: boolean;
+  is_available: boolean;
+  first_seen_at: string;
+  last_seen_at: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ProductHistoryEntry {
+  id: string;
+  product_id: string;
+  snapshot_id: string;
+  event_type: string;
+  changes: Record<string, unknown>;
+  price_at_snapshot: number | null;
+  created_at: string;
 }
 
 export interface Snapshot {
@@ -114,6 +146,7 @@ function mapProduct(p: Record<string, unknown>): Product {
   return {
     id: toStr(p.id),
     supermarketId: toStr(p.retailer),
+    catalogId: (p.catalog_id as string) ?? null,
     image: toStr(p.image_url),
     name: toStr(p.title),
     brand: toStr(p.brand),
@@ -175,4 +208,11 @@ export const api = {
 
   compareSnapshots: (oldId: string, newId: string) =>
     request<CompareResult>(`/api/snapshots/compare?old=${oldId}&new=${newId}`),
+
+  product: (id: string) => request<CatalogProduct>(`/api/products/${id}`),
+
+  productHistory: (id: string, limit?: number) => {
+    const params = limit != null ? `?limit=${limit}` : '';
+    return request<ProductHistoryEntry[]>(`/api/products/${id}/history${params}`);
+  },
 };

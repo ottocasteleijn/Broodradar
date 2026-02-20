@@ -271,6 +271,9 @@ def api_retailer_products(slug):
     if slug not in RETAILERS:
         return jsonify({"error": "Retailer niet gevonden"}), 404
     products = database.get_latest_snapshot_products(retailer=slug)
+    catalog_ids = database.get_catalog_ids_for_webshop_ids(slug, [p.get("webshop_id") for p in products if p.get("webshop_id")])
+    for p in products:
+        p["catalog_id"] = catalog_ids.get(p.get("webshop_id"))
     return jsonify(products)
 
 
@@ -349,6 +352,27 @@ def api_timeline():
         event_type=type_filter or None,
     )
     return jsonify(events)
+
+
+@app.route("/api/products/<product_id>")
+@api_login_required
+def api_product(product_id):
+    product = database.get_product(product_id)
+    if not product:
+        return jsonify({"error": "Product niet gevonden"}), 404
+    return jsonify(product)
+
+
+@app.route("/api/products/<product_id>/history")
+@api_login_required
+def api_product_history(product_id):
+    limit = request.args.get("limit", 50, type=int)
+    limit = min(max(limit, 1), 200)
+    product = database.get_product(product_id)
+    if not product:
+        return jsonify({"error": "Product niet gevonden"}), 404
+    history = database.get_product_history(product_id, limit=limit)
+    return jsonify(history)
 
 
 @app.errorhandler(404)
