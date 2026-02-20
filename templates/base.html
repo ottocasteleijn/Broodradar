@@ -9,11 +9,21 @@
 <body>
     <nav class="navbar">
         <a href="{{ url_for('dashboard') }}" class="nav-brand">Broodradar</a>
+        {% if request.endpoint != 'login' %}
         <div class="nav-links">
             <a href="{{ url_for('dashboard') }}" class="{% if request.endpoint == 'dashboard' %}active{% endif %}">Dashboard</a>
             <a href="{{ url_for('timeline') }}" class="{% if request.endpoint == 'timeline' %}active{% endif %}">Timeline</a>
             <a href="{{ url_for('snapshots') }}" class="{% if request.endpoint == 'snapshots' %}active{% endif %}">Snapshots</a>
         </div>
+        {% if user_email %}
+        <div class="nav-user">
+            <span class="nav-user-email">{{ user_email }}</span>
+            <form method="post" action="{{ url_for('logout') }}" class="nav-logout-form">
+                <button type="submit" class="btn nav-logout-btn">Uitloggen</button>
+            </form>
+        </div>
+        {% endif %}
+        {% endif %}
     </nav>
     <main class="container">
         {% with messages = get_flashed_messages(with_categories=true) %}

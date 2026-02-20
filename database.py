@@ -14,6 +14,20 @@ def _get_client():
     return _supabase
 
 
+def sign_in(email, password):
+    """Authenticate user with email and password. Returns dict with session, user, access_token, refresh_token; raises on failure."""
+    sb = _get_client()
+    response = sb.auth.sign_in_with_password({"email": email, "password": password})
+    return response
+
+
+def get_user_from_token(access_token):
+    """Validate access token and return user. Raises on invalid/expired token."""
+    sb = _get_client()
+    response = sb.auth.get_user(jwt=access_token)
+    return response.user
+
+
 def _check_retailer_column():
     """Check of de retailer-kolom bestaat (migratie uitgevoerd)."""
     global _has_retailer_column

@@ -1,8 +1,9 @@
 import os
+from functools import wraps
 from dotenv import load_dotenv
 load_dotenv()
 
-from flask import Flask, render_template, redirect, url_for, flash, request, abort
+from flask import Flask, render_template, redirect, url_for, flash, request, abort, session
 import database
 from retailers import RETAILERS, get_fetcher
 
@@ -12,12 +13,65 @@ app.secret_key = os.environ.get("SECRET_KEY", "broodradar-dev-key")
 app.jinja_env.globals["RETAILERS"] = RETAILERS
 
 
+def login_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        access_token = session.get("access_token")
+        if not access_token:
+            return redirect(url_for("login"))
+        try:
+            database.get_user_from_token(access_token)
+        except Exception:
+            session.clear()
+            return redirect(url_for("login"))
+        return f(*args, **kwargs)
+    return decorated_function
+
+
+@app.context_processor
+def inject_user_email():
+    return {"user_email": session.get("user_email")}
+
+
+@app.route("/login", methods=["GET", "POST"])
+def login():
+    if session.get("access_token"):
+        try:
+            database.get_user_from_token(session["access_token"])
+            return redirect(url_for("dashboard"))
+        except Exception:
+            session.clear()
+    if request.method == "POST":
+        email = (request.form.get("email") or "").strip()
+        password = request.form.get("password") or ""
+        if not email or not password:
+            flash("Vul e-mail en wachtwoord in.", "error")
+            return render_template("login.html")
+        try:
+            response = database.sign_in(email, password)
+            session["access_token"] = response.session.access_token
+            session["refresh_token"] = response.session.refresh_token
+            session["user_email"] = response.user.email
+            return redirect(url_for("dashboard"))
+        except Exception as e:
+            flash("Inloggen mislukt. Controleer je gegevens.", "error")
+            return render_template("login.html")
+    return render_template("login.html")
+
+
+@app.route("/logout", methods=["POST"])
+def logout():
+    session.clear()
+    return redirect(url_for("login"))
+
+
 @app.route("/")
 def index():
     return redirect(url_for("dashboard"))
 
 
 @app.route("/dashboard")
+@login_required
 def dashboard():
     stats = database.get_retailer_stats()
     recent_events = database.get_timeline_events(limit=5)
@@ -25,6 +79,7 @@ def dashboard():
 
 
 @app.route("/retailer/<slug>")
+@login_required
 def retailer_detail(slug):
     if slug not in RETAILERS:
         abort(404)
@@ -49,6 +104,7 @@ def retailer_detail(slug):
 
 
 @app.route("/retailer/<slug>/snapshot/new", methods=["POST"])
+@login_required
 def snapshot_new(slug):
     if slug not in RETAILERS:
         abort(404)
@@ -72,6 +128,7 @@ def snapshot_new(slug):
 
 
 @app.route("/timeline")
+@login_required
 def timeline():
     retailer_filter = request.args.get("retailer", "")
     type_filter = request.args.get("type", "")
@@ -91,6 +148,7 @@ def timeline():
 
 
 @app.route("/snapshots")
+@login_required
 def snapshots():
     retailer_filter = request.args.get("retailer", "")
     all_snapshots = database.get_snapshots(retailer=retailer_filter or None)
@@ -102,6 +160,7 @@ def snapshots():
 
 
 @app.route("/vergelijk")
+@login_required
 def vergelijk():
     old_id = request.args.get("old")
     new_id = request.args.get("new")
