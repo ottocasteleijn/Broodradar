@@ -3,11 +3,13 @@ from functools import wraps
 from dotenv import load_dotenv
 load_dotenv()
 
-from flask import Flask, render_template, redirect, url_for, flash, request, abort, session
+from flask import Flask, render_template, redirect, url_for, flash, request, abort, session, jsonify, send_from_directory
 import database
 from retailers import RETAILERS, get_fetcher
 
-app = Flask(__name__)
+FRONTEND_DIR = os.path.join(os.path.dirname(__file__), "frontend", "dist")
+
+app = Flask(__name__, static_folder=FRONTEND_DIR, static_url_path="")
 app.secret_key = os.environ.get("SECRET_KEY", "broodradar-dev-key")
 
 app.jinja_env.globals["RETAILERS"] = RETAILERS
@@ -185,6 +187,145 @@ def vergelijk():
         new_snapshot=new_snapshot,
         changes=changes,
     )
+
+
+# ---------------------------------------------------------------------------
+# JSON API endpoints (voor React frontend)
+# ---------------------------------------------------------------------------
+
+def api_login_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        access_token = session.get("access_token")
+        if not access_token:
+            return jsonify({"error": "Not authenticated"}), 401
+        try:
+            database.get_user_from_token(access_token)
+        except Exception:
+            session.clear()
+            return jsonify({"error": "Token expired"}), 401
+        return f(*args, **kwargs)
+    return decorated_function
+
+
+@app.route("/api/auth/login", methods=["POST"])
+def api_login():
+    data = request.get_json() or {}
+    email = (data.get("email") or "").strip()
+    password = data.get("password") or ""
+    if not email or not password:
+        return jsonify({"error": "Vul e-mail en wachtwoord in."}), 400
+    try:
+        response = database.sign_in(email, password)
+        session["access_token"] = response.session.access_token
+        session["refresh_token"] = response.session.refresh_token
+        session["user_email"] = response.user.email
+        return jsonify({"email": response.user.email})
+    except Exception:
+        return jsonify({"error": "Inloggen mislukt. Controleer je gegevens."}), 401
+
+
+@app.route("/api/auth/logout", methods=["POST"])
+def api_logout():
+    session.clear()
+    return jsonify({"ok": True})
+
+
+@app.route("/api/auth/me")
+def api_me():
+    access_token = session.get("access_token")
+    if not access_token:
+        return jsonify({"error": "Not authenticated"}), 401
+    try:
+        database.get_user_from_token(access_token)
+        return jsonify({"email": session.get("user_email")})
+    except Exception:
+        session.clear()
+        return jsonify({"error": "Token expired"}), 401
+
+
+@app.route("/api/retailers")
+@api_login_required
+def api_retailers():
+    stats = database.get_retailer_stats()
+    result = []
+    for slug, info in RETAILERS.items():
+        stat = stats.get(slug, {})
+        last_snap = stat.get("last_snapshot")
+        result.append({
+            "id": slug,
+            "name": info["name"],
+            "color": info["color"],
+            "active": info["active"],
+            "description": info.get("description", ""),
+            "productCount": last_snap["product_count"] if last_snap else None,
+            "lastUpdate": last_snap["created_at"] if last_snap else None,
+            "snapshotCount": stat.get("snapshot_count", 0),
+        })
+    return jsonify(result)
+
+
+@app.route("/api/retailers/<slug>/products")
+@api_login_required
+def api_retailer_products(slug):
+    if slug not in RETAILERS:
+        return jsonify({"error": "Retailer niet gevonden"}), 404
+    products = database.get_latest_snapshot_products(retailer=slug)
+    return jsonify(products)
+
+
+@app.route("/api/retailers/<slug>/snapshot", methods=["POST"])
+@api_login_required
+def api_snapshot_new(slug):
+    if slug not in RETAILERS:
+        return jsonify({"error": "Retailer niet gevonden"}), 404
+    info = RETAILERS[slug]
+    if not info["active"]:
+        return jsonify({"error": f"{info['name']} is nog niet beschikbaar."}), 400
+    try:
+        fetcher = get_fetcher(slug)
+        products = fetcher.fetch_all_products()
+        snapshot_id = database.create_snapshot(products, retailer=slug)
+        return jsonify({"snapshot_id": snapshot_id, "product_count": len(products)})
+    except NotImplementedError as e:
+        return jsonify({"error": str(e)}), 400
+    except Exception as e:
+        return jsonify({"error": f"Fout bij ophalen: {e}"}), 500
+
+
+@app.route("/api/snapshots")
+@api_login_required
+def api_snapshots():
+    retailer_filter = request.args.get("retailer", "")
+    all_snapshots = database.get_snapshots(retailer=retailer_filter or None)
+    return jsonify(all_snapshots)
+
+
+@app.route("/api/snapshots/compare")
+@api_login_required
+def api_compare_snapshots():
+    old_id = request.args.get("old")
+    new_id = request.args.get("new")
+    if not old_id or not new_id:
+        return jsonify({"error": "Geef 'old' en 'new' snapshot IDs mee."}), 400
+    try:
+        changes = database.compare_snapshots(old_id, new_id)
+        return jsonify(changes)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/timeline")
+@api_login_required
+def api_timeline():
+    retailer_filter = request.args.get("retailer", "")
+    type_filter = request.args.get("type", "")
+    events = database.get_timeline_events(
+        limit=100,
+        retailer=retailer_filter or None,
+        event_type=type_filter or None,
+    )
+    return jsonify(events)
 
 
 if __name__ == "__main__":

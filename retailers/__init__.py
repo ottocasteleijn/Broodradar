@@ -8,7 +8,7 @@ RETAILERS = {
     "jumbo": {
         "name": "Jumbo",
         "color": "#FFCC00",
-        "active": False,
+        "active": True,
         "description": "De tweede supermarkt van Nederland",
     },
     "lidl": {
