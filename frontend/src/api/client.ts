@@ -23,6 +23,7 @@ export interface Product {
   nutriscore: 'A' | 'B' | 'C' | 'D' | 'E' | null;
   category: string;
   bonus: boolean;
+  first_seen_at: string | null;
 }
 
 export interface CatalogProduct {
@@ -118,13 +119,28 @@ const CACHE_TTL = {
 } as const;
 
 const cache = new Map<string, { data: unknown; expiresAt: number }>();
+const pending = new Map<string, Promise<unknown>>();
 
 async function cached<T>(key: string, ttlMs: number, fn: () => Promise<T>): Promise<T> {
   const entry = cache.get(key);
   if (entry && entry.expiresAt > Date.now()) return entry.data as T;
-  const data = await fn();
-  cache.set(key, { data, expiresAt: Date.now() + ttlMs });
-  return data;
+
+  const inflight = pending.get(key);
+  if (inflight) return inflight as Promise<T>;
+
+  const promise = fn()
+    .then((data) => {
+      cache.set(key, { data, expiresAt: Date.now() + ttlMs });
+      pending.delete(key);
+      return data;
+    })
+    .catch((err) => {
+      pending.delete(key);
+      throw err;
+    });
+
+  pending.set(key, promise);
+  return promise;
 }
 
 export function invalidateCache(prefix: string): void {
@@ -184,6 +200,7 @@ function mapProduct(p: Record<string, unknown>): Product {
     nutriscore: nutri,
     category: toStr(p.sub_category),
     bonus: Boolean(p.is_bonus),
+    first_seen_at: p.first_seen_at != null ? toStr(p.first_seen_at) : null,
   };
 }
 
@@ -284,5 +301,15 @@ export const api = {
       const params = limit != null ? `?limit=${limit}` : '';
       return request<ProductHistoryEntry[]>(`/api/products/${id}/history${params}`);
     });
+  },
+
+  prefetchProducts: async () => {
+    try {
+      const retailers = await api.retailers();
+      const active = retailers.filter((r) => r.active);
+      await Promise.all(active.map((r) => api.retailerProducts(r.id)));
+    } catch {
+      // Prefetch mag stilletjes falen
+    }
   },
 };

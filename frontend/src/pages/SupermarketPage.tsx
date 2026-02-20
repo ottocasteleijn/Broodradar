@@ -5,9 +5,18 @@ import { Input } from "@/components/ui/Input";
 import { Badge } from "@/components/ui/Badge";
 import { Card, CardContent } from "@/components/ui/Card";
 import { Skeleton } from "@/components/ui/Skeleton";
-import { ArrowLeft, Search, Plus, Download, Loader2, Heart } from "lucide-react";
+import { ArrowLeft, Search, Plus, Download, Loader2, Heart, Calendar } from "lucide-react";
 import { useState, useMemo, useEffect, useCallback } from "react";
 import { useFollowedProducts } from "@/hooks/useFollowedProducts";
+
+function formatShortDate(iso: string | null): string {
+  if (!iso) return "";
+  try {
+    return new Date(iso).toLocaleDateString("nl-NL", { dateStyle: "short" });
+  } catch {
+    return iso;
+  }
+}
 
 function exportToCsv(products: Product[], filename: string) {
   const headers = ["Naam", "Merk", "Prijs", "Eenheid", "Nutriscore", "Categorie", "Bonus"];
@@ -312,6 +321,12 @@ export default function SupermarketPage() {
                     </Badge>
                   )}
                 </div>
+                {product.first_seen_at && (
+                  <p className="text-xs text-slate-400 mt-1.5 flex items-center gap-1">
+                    <Calendar className="h-3.5 w-3.5 shrink-0" />
+                    Eerste keer gespot: {formatShortDate(product.first_seen_at)}
+                  </p>
+                )}
               </div>
             </div>
           );

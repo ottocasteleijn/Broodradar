@@ -1,5 +1,5 @@
 import { useParams, Link } from "react-router-dom";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { api, type CatalogProduct, type ProductHistoryEntry, type Retailer } from "@/api/client";
 import { Card, CardContent } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
@@ -182,6 +182,24 @@ export default function ProductDetailPage() {
   const price = product.price != null ? Number(product.price) : null;
   const nutri = product.nutriscore && /^[A-E]$/i.test(product.nutriscore) ? product.nutriscore.toUpperCase() : null;
 
+  /** Geschiedenislog: altijd een regel voor eerste keer gespot (ook bij lazy-created producten zonder history-entry). */
+  const displayHistory = useMemo(() => {
+    const hasFirstSeen = history.some((e) => e.event_type === "first_seen");
+    if (hasFirstSeen || !product.first_seen_at) return history;
+    const synthetic: ProductHistoryEntry = {
+      id: "_first_seen",
+      product_id: product.id,
+      snapshot_id: "",
+      event_type: "first_seen",
+      changes: {},
+      price_at_snapshot: product.price != null ? Number(product.price) : null,
+      created_at: product.first_seen_at,
+    };
+    const combined = [...history, synthetic];
+    combined.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+    return combined;
+  }, [history, product.id, product.first_seen_at, product.price]);
+
   return (
     <div className="space-y-8">
       <div>
@@ -298,10 +316,10 @@ export default function ProductDetailPage() {
       <div>
         <h3 className="text-base sm:text-lg font-semibold text-slate-900 mb-4">Geschiedenislog</h3>
         <div className="relative space-y-0">
-          {history.length === 0 ? (
+          {displayHistory.length === 0 ? (
             <p className="text-slate-500 text-sm">Nog geen geschiedenis voor dit product.</p>
           ) : (
-            history.map((entry, idx) => (
+            displayHistory.map((entry, idx) => (
               <div
                 key={entry.id}
                 className="flex gap-3 sm:gap-4 pb-4 sm:pb-6 last:pb-0"
@@ -312,7 +330,7 @@ export default function ProductDetailPage() {
                   >
                     {EVENT_LABELS[entry.event_type] ?? entry.event_type}
                   </div>
-                  {idx < history.length - 1 && (
+                  {idx < displayHistory.length - 1 && (
                     <div className="w-px flex-1 min-h-[1rem] mt-2 bg-slate-200" />
                   )}
                 </div>
@@ -322,7 +340,7 @@ export default function ProductDetailPage() {
                   </p>
                   <p className="text-xs text-slate-400 mt-1 break-words">
                     {formatDate(entry.created_at)}
-                    {entry.snapshot_id && (
+                    {entry.snapshot_id && entry.id !== "_first_seen" && (
                       <>
                         {" · "}
                         <Link

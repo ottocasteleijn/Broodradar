@@ -297,7 +297,7 @@ def get_catalog_products(retailer):
     try:
         r = (
             sb.table("product_catalog")
-            .select("id, retailer, webshop_id, title, brand, price, sales_unit_size, unit_price_description, nutriscore, sub_category, image_url, is_bonus")
+            .select("id, retailer, webshop_id, title, brand, price, sales_unit_size, unit_price_description, nutriscore, sub_category, image_url, is_bonus, first_seen_at, last_seen_at")
             .eq("retailer", retailer)
             .order("title")
             .execute()

@@ -1,11 +1,19 @@
 import { Card, CardContent } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { Link } from "react-router-dom";
-import { ShoppingBag, Heart, ArrowRight, TrendingDown, TrendingUp } from "lucide-react";
+import { ShoppingBag, Heart, ArrowRight, TrendingDown, TrendingUp, Calendar } from "lucide-react";
 import { useEffect, useState, useMemo } from "react";
 import { api, type CatalogProduct, type ProductHistoryEntry, type Retailer } from "@/api/client";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { useFollowedProducts } from "@/hooks/useFollowedProducts";
+
+function formatShortDate(iso: string): string {
+  try {
+    return new Date(iso).toLocaleDateString("nl-NL", { dateStyle: "short" });
+  } catch {
+    return iso;
+  }
+}
 
 const EVENT_LABELS: Record<string, string> = {
   first_seen: "Nieuw",
@@ -204,6 +212,12 @@ export default function DashboardPage() {
                               </Badge>
                             )}
                           </div>
+                          {product.first_seen_at && (
+                            <p className="text-xs text-slate-400 mt-1.5 flex items-center gap-1">
+                              <Calendar className="h-3.5 w-3.5 shrink-0" />
+                              Eerste keer gespot: {formatShortDate(product.first_seen_at)}
+                            </p>
+                          )}
                         </div>
                       </div>
                     </Link>
