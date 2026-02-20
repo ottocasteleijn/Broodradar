@@ -46,7 +46,7 @@ export default function ProductsPage() {
       .then((arrays) => setProducts(arrays.flat()))
       .catch(() => setProducts([]))
       .finally(() => setLoading(false));
-  }, [retailers.map((r) => r.id).join(",")]);
+  }, [retailers]);
 
   const filteredProducts = useMemo(() => {
     return products.filter((product) => {
