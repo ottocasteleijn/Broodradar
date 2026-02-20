@@ -4,7 +4,7 @@ import { api, type CatalogProduct, type ProductHistoryEntry, type ProductAtSnaps
 import { Card, CardContent } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { Skeleton } from "@/components/ui/Skeleton";
-import { ArrowLeft, Package, Calendar, Heart, ChevronLeft, ChevronRight } from "lucide-react";
+import { ArrowLeft, Package, Heart, ChevronLeft, ChevronRight } from "lucide-react";
 import { useFollowedProducts } from "@/hooks/useFollowedProducts";
 
 const EVENT_LABELS: Record<string, string> = {
@@ -334,9 +334,15 @@ export default function ProductDetailPage() {
                   </button>
                 )}
               </div>
-              {product.brand && (
-                <p className="text-slate-600 mt-1 text-sm sm:text-base">{product.brand}</p>
-              )}
+              <Link
+                to={`/supermarket/${product.retailer}`}
+                className="inline-flex items-center gap-1.5 mt-1 text-slate-600 hover:text-slate-900 text-sm sm:text-base"
+              >
+                {productRetailer?.icon && (
+                  <img src={productRetailer.icon} alt="" className="h-5 w-5 shrink-0 object-contain" />
+                )}
+                {retailerName}
+              </Link>
               <div className="flex flex-wrap items-center gap-2 mt-3">
                 {price != null && (
                   <span className="font-medium text-slate-900">
@@ -377,7 +383,7 @@ export default function ProductDetailPage() {
                 </p>
               )}
               {product.ingredients && (
-                <details className="mt-3 group">
+                <details className="mt-3 group" open>
                   <summary className="text-sm font-medium text-slate-700 cursor-pointer select-none hover:text-slate-900 transition-colors">
                     Ingrediënten
                   </summary>
@@ -386,25 +392,6 @@ export default function ProductDetailPage() {
                   </p>
                 </details>
               )}
-              <div className="flex flex-col sm:flex-row sm:flex-wrap gap-2 sm:gap-3 mt-4 text-sm text-slate-500">
-                <span className="flex items-center gap-1 min-w-0">
-                  <Calendar className="h-4 w-4 shrink-0" />
-                  <span className="truncate">Eerst gezien: {formatDate(product.first_seen_at)}</span>
-                </span>
-                <span className="flex items-center gap-1 min-w-0">
-                  <Calendar className="h-4 w-4 shrink-0" />
-                  <span className="truncate">Laatst gezien: {formatDate(product.last_seen_at)}</span>
-                </span>
-                <Link
-                  to={`/supermarket/${product.retailer}`}
-                  className="inline-flex items-center gap-1.5 text-slate-900 hover:underline"
-                >
-                  {productRetailer?.icon && (
-                    <img src={productRetailer.icon} alt="" className="h-5 w-5 shrink-0 object-contain" />
-                  )}
-                  {retailerName}
-                </Link>
-              </div>
             </div>
           </div>
         </CardContent>
@@ -412,72 +399,76 @@ export default function ProductDetailPage() {
 
       <div>
         <h3 className="text-base sm:text-lg font-semibold text-slate-900 mb-4">Geschiedenislog</h3>
-        <div className="relative space-y-0">
-          {displayHistory.length === 0 ? (
-            <p className="text-slate-500 text-sm">Nog geen geschiedenis voor dit product.</p>
-          ) : (
-            displayHistory.map((entry, idx) => {
-              const hasSnapshot = Boolean(entry.snapshot_id && entry.id !== "_first_seen");
-              const isCurrentVersion = isVersionMode && entry.snapshot_id === snapshotIdParam;
-              const entryContent = (
-                <>
-                  <div className="flex flex-col items-center shrink-0">
+        <Card>
+          <CardContent className="p-4 sm:p-6">
+            {displayHistory.length === 0 ? (
+              <p className="text-slate-500 text-sm">Nog geen geschiedenis voor dit product.</p>
+            ) : (
+              <div className="space-y-1">
+                {displayHistory.map((entry, idx) => {
+                  const hasSnapshot = Boolean(entry.snapshot_id && entry.id !== "_first_seen");
+                  const isCurrentVersion = isVersionMode && entry.snapshot_id === snapshotIdParam;
+                  const entryContent = (
+                    <>
+                      <div className="flex flex-col items-start shrink-0 w-36 sm:w-40 min-w-[9rem]">
+                        <div
+                          className={`rounded-full px-2 py-0.5 sm:px-2.5 sm:py-1 text-[10px] sm:text-xs font-medium whitespace-nowrap ${eventBadgeClass(entry.event_type)}`}
+                        >
+                          {EVENT_LABELS[entry.event_type] ?? entry.event_type}
+                        </div>
+                        {idx < displayHistory.length - 1 && (
+                          <div className="w-px flex-1 min-h-[1rem] mt-2 bg-slate-200 self-center" />
+                        )}
+                      </div>
+                      <div className="min-w-0 flex-1 pt-0.5 overflow-hidden py-1">
+                        <p className="text-sm text-slate-600 break-words">
+                          {formatHistoryDescription(entry)}
+                        </p>
+                        <p className="text-xs text-slate-400 mt-1 break-words">
+                          {formatDate(entry.created_at)}
+                          {hasSnapshot && (
+                            <>
+                              {" · "}
+                              <Link
+                                to={`/snapshots?snapshot=${entry.snapshot_id}`}
+                                className="text-slate-500 hover:underline"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                Snapshot
+                              </Link>
+                            </>
+                          )}
+                        </p>
+                        {entry.price_at_snapshot != null && (
+                          <p className="text-xs text-slate-500 mt-0.5">
+                            Prijs bij snapshot: €{Number(entry.price_at_snapshot).toFixed(2)}
+                          </p>
+                        )}
+                      </div>
+                    </>
+                  );
+                  return (
                     <div
-                      className={`rounded-full px-2 py-0.5 sm:px-2.5 sm:py-1 text-[10px] sm:text-xs font-medium whitespace-nowrap ${eventBadgeClass(entry.event_type)}`}
+                      key={entry.id}
+                      className={`flex gap-4 sm:gap-5 items-start py-3 sm:py-4 first:pt-0 last:pb-0 border-b border-slate-100 last:border-b-0 ${isCurrentVersion ? "rounded-lg bg-slate-100 ring-1 ring-slate-200 -mx-2 px-4 py-3 sm:-mx-3 sm:px-5 sm:py-4" : ""} ${hasSnapshot && !isCurrentVersion ? "cursor-pointer hover:bg-slate-50 rounded-lg -mx-2 px-4 py-3 sm:-mx-3 sm:px-5 sm:py-4 -mb-1 last:mb-0" : ""}`}
                     >
-                      {EVENT_LABELS[entry.event_type] ?? entry.event_type}
-                    </div>
-                    {idx < displayHistory.length - 1 && (
-                      <div className="w-px flex-1 min-h-[1rem] mt-2 bg-slate-200" />
-                    )}
-                  </div>
-                  <div className="min-w-0 flex-1 pt-0.5 overflow-hidden">
-                    <p className="text-sm text-slate-600 break-words">
-                      {formatHistoryDescription(entry)}
-                    </p>
-                    <p className="text-xs text-slate-400 mt-1 break-words">
-                      {formatDate(entry.created_at)}
-                      {hasSnapshot && (
-                        <>
-                          {" · "}
-                          <Link
-                            to={`/snapshots?snapshot=${entry.snapshot_id}`}
-                            className="text-slate-500 hover:underline"
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            Snapshot
-                          </Link>
-                        </>
+                      {hasSnapshot ? (
+                        <Link
+                          to={`/product/${product.id}/versie/${entry.snapshot_id}`}
+                          className="flex gap-4 sm:gap-5 min-w-0 flex-1 items-start no-underline text-inherit"
+                        >
+                          {entryContent}
+                        </Link>
+                      ) : (
+                        entryContent
                       )}
-                    </p>
-                    {entry.price_at_snapshot != null && (
-                      <p className="text-xs text-slate-500 mt-0.5">
-                        Prijs bij snapshot: €{Number(entry.price_at_snapshot).toFixed(2)}
-                      </p>
-                    )}
-                  </div>
-                </>
-              );
-              return (
-                <div
-                  key={entry.id}
-                  className={`flex gap-3 sm:gap-4 pb-4 sm:pb-6 last:pb-0 ${isCurrentVersion ? "rounded-lg bg-slate-100 ring-1 ring-slate-200 -mx-1 px-3 py-2" : ""} ${hasSnapshot && !isCurrentVersion ? "cursor-pointer hover:bg-slate-50 rounded-lg -mx-1 px-3 py-2" : ""}`}
-                >
-                  {hasSnapshot ? (
-                    <Link
-                      to={`/product/${product.id}/versie/${entry.snapshot_id}`}
-                      className="flex gap-3 sm:gap-4 min-w-0 flex-1 items-start no-underline text-inherit"
-                    >
-                      {entryContent}
-                    </Link>
-                  ) : (
-                    entryContent
-                  )}
-                </div>
-              );
-            })
-          )}
-        </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </CardContent>
+        </Card>
       </div>
     </div>
   );

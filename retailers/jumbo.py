@@ -135,6 +135,31 @@ def _fetch_one_ingredients(product_id):
     return (str(product_id), text)
 
 
+def verify_products_exist(webshop_ids):
+    """Verify via product detail API welke producten nog bestaan. Retourneert set van webshop_id strings die bestaan."""
+    if not webshop_ids:
+        return set()
+    existing = set()
+
+    def _check_one(product_id):
+        try:
+            data = _get(f"{PRODUCT_DETAIL_URL}/{product_id}")
+            node = data.get("product", {}).get("data", data.get("product", data))
+            if isinstance(node, dict) and node.get("id"):
+                return str(product_id)
+        except Exception:
+            pass
+        return None
+
+    with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
+        futures = {executor.submit(_check_one, pid): pid for pid in webshop_ids}
+        for future in as_completed(futures):
+            result = future.result()
+            if result:
+                existing.add(result)
+    return existing
+
+
 def fetch_ingredients(product_ids):
     """
     Haal ingrediënten op voor de opgegeven product_ids via concurrente REST-calls.

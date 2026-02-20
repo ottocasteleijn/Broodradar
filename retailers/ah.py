@@ -77,6 +77,37 @@ def _parse_ah_product_id(webshop_id):
     return int(s)
 
 
+def verify_products_exist(webshop_ids):
+    """Batch-verify via GraphQL welke producten nog bestaan. Retourneert set van webshop_id strings die bestaan."""
+    if not webshop_ids:
+        return set()
+    token = _get_token()
+    extra = {"Authorization": f"Bearer {token}"}
+    existing = set()
+    ids_with_key = []
+    for wid in webshop_ids:
+        pid = _parse_ah_product_id(wid)
+        if pid is not None:
+            ids_with_key.append((str(wid), pid))
+    for i in range(0, len(ids_with_key), BATCH_SIZE):
+        chunk = ids_with_key[i : i + BATCH_SIZE]
+        parts = [
+            f'p{pid}: product(id: {pid}) {{ id title }}'
+            for _key, pid in chunk
+        ]
+        query = "query { " + " ".join(parts) + " }"
+        try:
+            data = _curl("POST", GRAPHQL_URL, body={"query": query}, extra_headers=extra)
+        except Exception:
+            continue
+        gql_data = data.get("data") or {}
+        for key_str, pid in chunk:
+            node = gql_data.get(f"p{pid}")
+            if node and isinstance(node, dict) and node.get("id"):
+                existing.add(key_str)
+    return existing
+
+
 def fetch_ingredients(webshop_ids):
     """
     Haal ingrediënten op voor de opgegeven webshop_ids via gebatchte GraphQL.

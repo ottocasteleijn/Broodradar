@@ -27,6 +27,20 @@ def get_fetcher(slug):
     raise ValueError(f"Onbekende retailer: {slug}")
 
 
+def verify_products_exist(slug, webshop_ids):
+    """Controleer via de retailer-API welke webshop_ids nog bestaan.
+    Retourneert set van webshop_id strings die nog bestaan.
+    Geeft een lege set terug als de retailer geen verify ondersteunt."""
+    try:
+        fetcher = get_fetcher(slug)
+    except ValueError:
+        return set()
+    fn = getattr(fetcher, "verify_products_exist", None)
+    if not callable(fn):
+        return set()
+    return fn(webshop_ids)
+
+
 def enrich_products_with_ingredients(fetcher, products):
     """Haal ingrediënten op en voeg ze toe aan elk product (mutates products)."""
     if not products:

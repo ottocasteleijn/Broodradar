@@ -204,8 +204,23 @@ def _update_catalog_and_history(sb, retailer, snapshot_id, rows, has_retailer):
             "last_seen_at": now_iso,
         }).in_("id", chunk).execute()
 
+    potentially_removed = set(old_by_webshop.keys()) - set(new_by_webshop.keys())
+    actually_removed = potentially_removed
+    if potentially_removed:
+        from retailers import verify_products_exist
+        try:
+            still_exist = verify_products_exist(retailer, list(potentially_removed))
+            actually_removed = potentially_removed - still_exist
+            if still_exist:
+                logger.info(
+                    "verify %s: %d/%d 'removed' products still exist – skipping",
+                    retailer, len(still_exist), len(potentially_removed),
+                )
+        except Exception as exc:
+            logger.warning("verify failed for %s: %s – treating all as removed", retailer, exc)
+
     removed_count = 0
-    for webshop_id in set(old_by_webshop.keys()) - set(new_by_webshop.keys()):
+    for webshop_id in actually_removed:
         existing = existing_by_webshop.get(webshop_id)
         if not existing:
             continue
@@ -402,7 +417,17 @@ def _generate_timeline_events(retailer, new_snapshot_id):
             "details": {"price": float(p["price"]) if p.get("price") else None},
         })
 
-    for p in changes["removed_products"]:
+    removed = changes["removed_products"]
+    if removed:
+        from retailers import verify_products_exist
+        try:
+            removed_wids = [p["webshop_id"] for p in removed if p.get("webshop_id")]
+            still_exist = verify_products_exist(retailer, removed_wids)
+            removed = [p for p in removed if p.get("webshop_id") not in still_exist]
+        except Exception:
+            pass
+
+    for p in removed:
         events.append({
             "retailer": retailer,
             "event_type": "removed_product",
