@@ -1,48 +1,32 @@
-"""Plus supermarkt product fetcher via de Plus middleware API (Tweakwise-backed)."""
-import json
+"""Plus supermarkt product fetcher via server-side rendered HTML (Googlebot prerender)."""
 import logging
+import re
 import requests
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from urllib.parse import urlencode
+from html import unescape
 
 logger = logging.getLogger(__name__)
 
-API_BASE = "https://pls-sprmrkt-mw.prd.vdc1.plus.nl/api/v3"
-AUTH_URL = "https://pls-sprmrkt-mw.prd.vdc1.plus.nl"
-AUTH_PATH = "/Due-away-are-Fight-Banq-Though-theere-Prayers-On"
-NAVIGATION_URL = f"{API_BASE}/navigation"
-PRODUCT_DETAIL_URL = f"{API_BASE}/product"
-MAX_WORKERS = 10
-PAGE_SIZE = 1000
+BASE_URL = "https://www.plus.nl"
+MAIN_CATEGORY = "/producten/brood-gebak-bakproducten"
+EXCLUDED_SUBCATEGORIES = (
+    "bakproducten",
+    "luxe-cake-en-koek",
+    "vers-gebak",
+)
+PRODUCT_URL = f"{BASE_URL}/product"
+MAX_WORKERS = 8
+REQUEST_TIMEOUT = 30
 
 HEADERS = {
-    "Cache-Control": "no-cache",
-    "Content-Type": "application/json",
-    "Accept": "*/*",
+    "User-Agent": "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)",
+    "Accept": "text/html,application/xhtml+xml",
+    "Accept-Language": "nl-NL,nl;q=0.9",
     "Accept-Encoding": "gzip, deflate, br",
-    "Connection": "keep-alive",
-    "User-Agent": "PLUS/3.6.0 (Android 12)",
 }
 
-AUTH_COOKIE_KEY = "reese84"
-
-_AUTH_SOLUTION = {
-    "solution": {
-        "interrogation": {
-            "p": "IrfkY8S0oyIit0dzhSM0VhQjloaXNRU18iajItW1IsJGY7T0JCY0Vpcnp3UkdbIm5CNjVKMi1bXC14MidTcWdfQkxmMWNRX203Yi0yKj9tSWp8bG8hbiUwIDdYLmlvZGN3fkAgJFAxMD4gKzlnVj5rNDhwJDYwKSBxTGB3VWJlaWtPJHM1Pic2MzggKEtNRFwsTGAraWAlZWdLY2kvY0AieG1vbyVgMT4lPiA+IDAgMWNRZmlidT8nMzM+ICYwX08iUTkwPiQ+ITU+JjAxMCY1SClkaWR+b2NwJGRxPSIpIiwuRDRJeHlRX0NcbTlaMiViLS5jVVwiJDIpfklUT0h8YVFjUiZ7ejgyI0g5VVNHaWFHVFNkMmd6dX9pOHU3P0xlTTdiLTZqPGFlY3IsKTg2R0d2bTN6MiIrXmVlXSIjXX1SLC5JN19IdmFJenJxN1JHXWRKMilCIT5iU1dlQlZ3fW1HckphUTFEV1pyWERaTkMzaG5BNVxLZkJQPkReSkR5cWJAd09COGhTYWR9b0ppSWlJM25vST5EXU5FVkRqekI1VTJWUVhRMjRUNTA0XGlabklpQ0FTclRSX0ZVRFEyW21KTGA/QHlJaUk9TGNUOH1kY0pFVFpdRl5JaUlpU3E6dWVGWmVYbGdeSmk1QmxsZElcZlA+RkB2RWxgeFRodkM+TG5IQVlyUjFiWlM+R3JGU1B6W2ZbSkI0ZHFVV1E0fWNWX2pgWWpDUV9pM1VSXGMxbERjMVRKUjFeSUl5QTh5YWtodUNsRG5tRXQwM1hwcDlSQlVXXkJMaVtGRFRYaHAyU05AOldVO2RiUTVEUzd1Qll6TW9DWUlpSTVMYVk8bGlfSUNZQjh5YW5FXGRQMlE9SlUwM1F4Z1FuTGZUVTJQNGJfanBZakNQUlpFVFxtTG5JY3hCLTIsLkQ+Rjh1Y09KfmRHWGhdan5COTFWeDpIQjxtN2oyKFIgNlBZbkhTVXVUXUdyVkJVSkpla2VER1d2WmZXQkxiYHByNGpKQTdUfG1hYzxlXUlyREFWUHE2WFtkUWd7a2NSPkVSa2hnSllKWENSQHZDVH5LYW1OR1RVWGExa2xhNlRBPWVkV3dWWn5KYm9mRkRuTkVOTkZVWlJyVE1GUTAyaGRmQmlgfGlYRHVWV1JMYmBwcjNqRlRKWEh3QmtKTWVvZGZEbUpBN1RyXmdaVkdKU3hmRWFgdVpUWUlpQ3pdY2tpM0VgNldJQDN8aFN5Q1NTPkxkUFtqZVd4Z1dbbkdKX0RmRVxmSmNRelRRWk5CN1JxPWNqTGAzVTUwMm9GRkJUelxvQVxlVFB8YjJWTkI1YzRmQWhqW2pYQUhCZTpHUVI4ZVJhYHVUVExnRlppNUpZVHdBWlpRNVR8Yz1DeVExanh3RFJSWFRURlRRZkFSNlA+RFleSHdZWFU9YlFmQjZcSlxhYVk3U1FxSFJRMlIzU3U9YWloaERYVGhCY1B2V1A4ZlJoYldHWVxuZVtJUjxJag==",
-            "st": 1667958230,
-            "sr": 595521988,
-            "cr": 398863270,
-        },
-        "version": "beta",
-    },
-    "old_token": None,
-    "error": None,
-    "performance": {"interrogation": 340},
-}
-
-_token_cache = {"token": None}
 _session = None
+_slug_cache = {}
 
 
 def _get_session():
@@ -53,180 +37,231 @@ def _get_session():
     return _session
 
 
-def _login():
-    """Verkrijg een reese84 token via de bot-challenge endpoint."""
-    url = f"{AUTH_URL}{AUTH_PATH}?d=pls-sprmrkt-mw.prd.vdc1.plus.nl"
-    try:
-        resp = requests.post(
-            url,
-            data=json.dumps(_AUTH_SOLUTION),
-            headers={"Content-Type": "application/json"},
-            timeout=15,
-        )
-        resp.raise_for_status()
-        token = resp.json().get("token")
-        if not token:
-            raise RuntimeError("Plus auth response bevat geen token")
-        _token_cache["token"] = token
-        logger.info("Plus reese84 token verkregen")
-        return token
-    except Exception as exc:
-        logger.error("Plus login mislukt: %s", exc)
-        raise
-
-
-def _get_token():
-    """Haal gecached token op, of login opnieuw."""
-    if _token_cache["token"]:
-        return _token_cache["token"]
-    return _login()
-
-
-def _get(url, retry=True):
-    """HTTP GET met reese84 cookie. Retry eenmaal bij 401/403."""
-    token = _get_token()
-    session = _get_session()
-    session.cookies.set(AUTH_COOKIE_KEY, token, domain="pls-sprmrkt-mw.prd.vdc1.plus.nl")
-    resp = session.get(url, timeout=30)
-
-    if resp.status_code in (401, 403) and retry:
-        logger.warning("Plus API %d, opnieuw inloggen...", resp.status_code)
-        _token_cache["token"] = None
-        return _get(url, retry=False)
-
+def _fetch_html(url):
+    """Fetch prerendered HTML via Googlebot user-agent."""
+    resp = _get_session().get(url, timeout=REQUEST_TIMEOUT)
     resp.raise_for_status()
-    return resp.json()
+    return resp.text
 
 
-def _map_product(p):
-    """Map Plus Tweakwise product naar het standaardformat dat database.py verwacht."""
-    title = p.get("title", "")
-    brand = p.get("brand")
+def _parse_product_list(html):
+    """Parse product links, titles, prices and bonus from a PLP page."""
+    products = []
 
-    sale_price = p.get("price")
-    list_price = p.get("listPrice") or p.get("price")
-    if isinstance(sale_price, str):
-        try:
-            sale_price = float(sale_price)
-        except (ValueError, TypeError):
-            sale_price = None
-    if isinstance(list_price, str):
-        try:
-            list_price = float(list_price)
-        except (ValueError, TypeError):
-            list_price = None
+    link_pattern = re.compile(
+        r'href="/product/([^"]+)"\s+title="([^"]+)"'
+    )
+    price_int_pattern = re.compile(
+        r'PriceInteger[^>]*><span[^>]*>([^<]+)'
+    )
+    price_dec_pattern = re.compile(
+        r'PriceDecimals[^>]*><span[^>]*>([^<]+)'
+    )
+    prev_price_pattern = re.compile(
+        r'PricePrevious[^>]*>(.*?)</div',
+        re.DOTALL,
+    )
 
-    is_bonus = False
-    if sale_price is not None and list_price is not None and list_price > sale_price:
-        is_bonus = True
+    links = link_pattern.findall(html)
+    price_ints = price_int_pattern.findall(html)
+    price_decs = price_dec_pattern.findall(html)
+    prev_prices = prev_price_pattern.findall(html)
 
-    price = list_price if is_bonus else sale_price
+    for i, (slug, title) in enumerate(links):
+        sku = slug.rsplit("-", 1)[-1] if "-" in slug else slug
+        title = unescape(title)
 
-    images_data = p.get("images", [])
-    image_url = None
-    if isinstance(images_data, list) and images_data:
-        first_img = images_data[0]
-        if isinstance(first_img, dict):
-            image_url = first_img.get("effectiveUrl") or first_img.get("url")
-        elif isinstance(first_img, str):
-            image_url = first_img
+        price = None
+        if i < len(price_ints) and i < len(price_decs):
+            try:
+                price = float(price_ints[i].strip() + price_decs[i].strip())
+            except (ValueError, TypeError):
+                pass
 
-    unit_size = p.get("baseUnit") or p.get("unit")
+        is_bonus = False
+        prev_price = None
+        if i < len(prev_prices):
+            prev_match = re.search(r"[\d]+[.,][\d]+", prev_prices[i])
+            if prev_match:
+                is_bonus = True
+                try:
+                    prev_price = float(prev_match.group().replace(",", "."))
+                except (ValueError, TypeError):
+                    pass
 
-    return {
-        "webshopId": str(p.get("itemno", "")),
-        "hqId": str(p.get("itemno", "")),
-        "title": title,
-        "brand": brand,
-        "salesUnitSize": unit_size,
-        "priceBeforeBonus": price,
-        "unitPriceDescription": None,
-        "mainCategory": p.get("mainCategoryName"),
-        "subCategory": None,
-        "nutriscore": None,
-        "isBonus": is_bonus,
-        "isStapelBonus": False,
-        "discountLabels": [],
-        "descriptionHighlights": None,
-        "propertyIcons": [],
-        "images": [{"url": image_url, "width": 200}] if image_url else [],
-        "availableOnline": True,
-        "orderAvailabilityStatus": None,
-        "_raw_plus": p,
-    }
+        products.append({
+            "webshopId": sku,
+            "hqId": sku,
+            "title": title,
+            "brand": _extract_brand(title),
+            "salesUnitSize": _extract_unit(slug),
+            "priceBeforeBonus": prev_price if is_bonus else price,
+            "unitPriceDescription": None,
+            "mainCategory": "Brood, gebak & bakproducten",
+            "subCategory": None,
+            "nutriscore": None,
+            "isBonus": is_bonus,
+            "isStapelBonus": False,
+            "discountLabels": [],
+            "descriptionHighlights": None,
+            "propertyIcons": [],
+            "images": [],
+            "availableOnline": True,
+            "orderAvailabilityStatus": None,
+            "_plus_slug": slug,
+        })
+
+    return products
+
+
+def _extract_brand(title):
+    """Haal merk uit titel (eerste woord of PLUS)."""
+    if title.upper().startswith("PLUS "):
+        return "PLUS"
+    parts = title.split()
+    return parts[0] if parts else None
+
+
+def _extract_unit(slug):
+    """Probeer eenheid uit de slug te halen (bijv. 'zak-1-st' of 'zak-400-g')."""
+    unit_match = re.search(r"-(stuk|zak|pak|doos|bakje|fles|blik)-(\d+)-(\w+)-", slug)
+    if unit_match:
+        return f"{unit_match.group(2)} {unit_match.group(3)}"
+    unit_match2 = re.search(r"-(stuk|zak|pak|doos|bakje|fles|blik)-(\d+)-(\w+)$", slug)
+    if unit_match2:
+        return f"{unit_match2.group(2)} {unit_match2.group(3)}"
+    return None
+
+
+def _discover_leaf_categories():
+    """Ontdek alle leaf-subcategorieën van de broodcategorie."""
+    url = f"{BASE_URL}{MAIN_CATEGORY}"
+    html = _fetch_html(url)
+    all_cats = list(set(re.findall(
+        rf'href="({re.escape(MAIN_CATEGORY)}/[^"]+)"', html
+    )))
+    all_cats.sort()
+
+    leaves = []
+    for cat in all_cats:
+        segment = cat.replace(MAIN_CATEGORY + "/", "").split("/")[0]
+        if segment in EXCLUDED_SUBCATEGORIES:
+            continue
+        is_parent = any(
+            other.startswith(cat + "/") for other in all_cats if other != cat
+        )
+        if not is_parent:
+            leaves.append(cat)
+    return leaves, html
+
+
+def _scrape_category(url):
+    """Scrape een enkele categorie-URL en retourneer producten."""
+    try:
+        html = _fetch_html(url)
+        return _parse_product_list(html)
+    except Exception as exc:
+        logger.warning("Plus: fout bij ophalen %s: %s", url, exc)
+        return []
 
 
 def fetch_all_products(query="brood"):
-    """Haal alle broodproducten op via Tweakwise navigatie-paginatie. Retourneert list[dict]."""
-    all_products = []
-    page = 1
+    """Haal alle broodproducten op via alle subcategorieën. Retourneert list[dict]."""
+    logger.info("Plus: ontdekken subcategorieën van %s", MAIN_CATEGORY)
+    leaves, main_html = _discover_leaf_categories()
+    logger.info("Plus: %d leaf-categorieën gevonden", len(leaves))
 
-    while True:
-        params = urlencode({
-            "tn_q": query,
-            "tn_ps": PAGE_SIZE,
-            "tn_p": page,
-        })
-        url = f"{NAVIGATION_URL}?{params}"
-        data = _get(url)
+    seen = {}
+    main_products = _parse_product_list(main_html)
+    for p in main_products:
+        seen[p["webshopId"]] = p
 
-        items = data.get("items", [])
-        if not items:
-            break
+    urls = [f"{BASE_URL}{cat}" for cat in leaves]
+    with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
+        futures = {executor.submit(_scrape_category, url): url for url in urls}
+        for future in as_completed(futures):
+            for p in future.result():
+                if p["webshopId"] not in seen:
+                    seen[p["webshopId"]] = p
 
-        all_products.extend(_map_product(p) for p in items)
+    products = list(seen.values())
+    for p in products:
+        _slug_cache[p["webshopId"]] = p.get("_plus_slug", "")
 
-        props = data.get("properties", {})
-        total_pages = props.get("nrofpages", 1)
-        if isinstance(total_pages, str):
-            try:
-                total_pages = int(total_pages)
-            except ValueError:
-                total_pages = 1
-
-        if page >= total_pages:
-            break
-        page += 1
-
-    logger.info("Plus: %d producten opgehaald voor query '%s'", len(all_products), query)
-    return all_products
+    logger.info("Plus: %d unieke producten opgehaald", len(products))
+    return products
 
 
-def _fetch_one_detail(product_id):
-    """Haal productdetails op voor één product. Retourneert (product_id, detail_dict)."""
-    if not product_id:
-        return (product_id, None)
+def _fetch_product_detail(slug):
+    """Haal productdetails op (ingrediënten, prijs) van de PDP."""
+    url = f"{PRODUCT_URL}/{slug}"
     try:
-        data = _get(f"{PRODUCT_DETAIL_URL}/{product_id}")
-        return (str(product_id), data)
+        html = _fetch_html(url)
     except Exception:
-        return (str(product_id), None)
+        return None
+
+    detail = {}
+
+    ing_pattern = re.compile(
+        r'ingredienten_btn.*?<span data-expression=""[^>]*>(.+?)</span>',
+        re.DOTALL,
+    )
+    ing_match = ing_pattern.search(html)
+    if ing_match:
+        raw = ing_match.group(1).strip()
+        raw = re.sub(r"<[^>]+>", "", raw)
+        detail["ingredients"] = unescape(raw).strip()
+
+    price_int_match = re.search(r'PriceInteger[^>]*><span[^>]*>([^<]+)', html)
+    price_dec_match = re.search(r'PriceDecimals[^>]*><span[^>]*>([^<]+)', html)
+    if price_int_match and price_dec_match:
+        try:
+            detail["price"] = float(
+                price_int_match.group(1).strip() + price_dec_match.group(1).strip()
+            )
+        except (ValueError, TypeError):
+            pass
+
+    prev_match = re.search(
+        r'PricePrevious[^>]*>.*?(\d+[.,]\d+).*?</div', html, re.DOTALL
+    )
+    if prev_match:
+        try:
+            detail["previousPrice"] = float(prev_match.group(1).replace(",", "."))
+        except (ValueError, TypeError):
+            pass
+
+    return detail
 
 
 def _fetch_one_ingredients(product_id):
-    """Haal ingrediënten op voor één product. Retourneert (product_id, ingredient_text)."""
-    pid, data = _fetch_one_detail(product_id)
-    if not data or not isinstance(data, dict):
+    """Haal ingrediënten op voor één product. Retourneert (webshop_id, ingredient_text)."""
+    pid = str(product_id)
+    slug = _slug_cache.get(pid)
+    if not slug:
         return (pid, None)
 
-    ingredients = data.get("wettelijke_naam") or data.get("ingredients")
-    if ingredients and isinstance(ingredients, str):
-        return (pid, ingredients.strip())
-    return (pid, None)
+    detail = _fetch_product_detail(slug)
+    if not detail:
+        return (pid, None)
+    return (pid, detail.get("ingredients"))
 
 
 def verify_products_exist(webshop_ids):
-    """Verify via product detail API welke producten nog bestaan. Retourneert set van webshop_id strings die bestaan."""
+    """Verify via product detail page welke producten nog bestaan. Retourneert set van webshop_id strings."""
     if not webshop_ids:
         return set()
     existing = set()
 
     def _check_one(product_id):
+        url = f"{BASE_URL}/product/x-{product_id}"
         try:
-            _get(f"{PRODUCT_DETAIL_URL}/{product_id}")
-            return str(product_id)
+            resp = _get_session().get(url, timeout=REQUEST_TIMEOUT, allow_redirects=True)
+            if resp.status_code == 200 and "pagina-niet-gevonden" not in resp.url:
+                return str(product_id)
         except Exception:
-            return None
+            pass
+        return None
 
     with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
         futures = {executor.submit(_check_one, pid): pid for pid in webshop_ids}
@@ -239,8 +274,10 @@ def verify_products_exist(webshop_ids):
 
 def fetch_ingredients(product_ids):
     """
-    Haal ingrediënten op voor de opgegeven product_ids via concurrente REST-calls.
+    Haal ingrediënten op voor de opgegeven product_ids.
     Retourneert dict[product_id_str, ingredient_text].
+
+    Gebruikt de _slug_cache die gevuld wordt door fetch_all_products.
     """
     if not product_ids:
         return {}
