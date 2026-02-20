@@ -209,7 +209,7 @@ export default function ProductDetailPage() {
                 </span>
                 <Link
                   to={`/supermarket/${product.retailer}`}
-                  className="text-slate-900 hover:underline sm:ml-0"
+                  className="text-slate-900 hover:underline"
                 >
                   {retailerName}
                 </Link>
@@ -220,7 +220,7 @@ export default function ProductDetailPage() {
       </Card>
 
       <div>
-        <h3 className="text-lg font-semibold text-slate-900 mb-4">Geschiedenislog</h3>
+        <h3 className="text-base sm:text-lg font-semibold text-slate-900 mb-4">Geschiedenislog</h3>
         <div className="relative space-y-0">
           {history.length === 0 ? (
             <p className="text-slate-500 text-sm">Nog geen geschiedenis voor dit product.</p>
@@ -228,11 +228,11 @@ export default function ProductDetailPage() {
             history.map((entry, idx) => (
               <div
                 key={entry.id}
-                className="flex gap-4 pb-6 last:pb-0"
+                className="flex gap-3 sm:gap-4 pb-4 sm:pb-6 last:pb-0"
               >
                 <div className="flex flex-col items-center shrink-0">
                   <div
-                    className={`rounded-full px-2.5 py-1 text-xs font-medium ${eventBadgeClass(entry.event_type)}`}
+                    className={`rounded-full px-2 py-0.5 sm:px-2.5 sm:py-1 text-[10px] sm:text-xs font-medium whitespace-nowrap ${eventBadgeClass(entry.event_type)}`}
                   >
                     {EVENT_LABELS[entry.event_type] ?? entry.event_type}
                   </div>
@@ -240,11 +240,11 @@ export default function ProductDetailPage() {
                     <div className="w-px flex-1 min-h-[1rem] mt-2 bg-slate-200" />
                   )}
                 </div>
-                <div className="min-w-0 flex-1 pt-0.5">
-                  <p className="text-sm text-slate-600">
+                <div className="min-w-0 flex-1 pt-0.5 overflow-hidden">
+                  <p className="text-sm text-slate-600 break-words">
                     {formatHistoryDescription(entry)}
                   </p>
-                  <p className="text-xs text-slate-400 mt-1">
+                  <p className="text-xs text-slate-400 mt-1 break-words">
                     {formatDate(entry.created_at)}
                     {entry.snapshot_id && (
                       <>
