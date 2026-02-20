@@ -13,6 +13,7 @@ const EVENT_LABELS: Record<string, string> = {
   price_change: "Prijswijziging",
   title_change: "Naamswijziging",
   bonus_change: "Bonus wijziging",
+  ingredients_change: "Ingredienten gewijzigd",
   removed: "Uit assortiment",
   returned: "Terug in assortiment",
   multi_change: "Meerdere wijzigingen",

@@ -3,7 +3,7 @@ import { Badge } from "@/components/ui/Badge";
 import { Link } from "react-router-dom";
 import { ShoppingBag, Heart, ArrowRight, TrendingDown, TrendingUp, Calendar } from "lucide-react";
 import { useEffect, useState, useMemo } from "react";
-import { api, type CatalogProduct, type ProductHistoryEntry, type Retailer } from "@/api/client";
+import { api, type CatalogProduct, type ProductHistoryEntry, type RecentChange, type Retailer } from "@/api/client";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { useFollowedProducts } from "@/hooks/useFollowedProducts";
 
@@ -20,6 +20,7 @@ const EVENT_LABELS: Record<string, string> = {
   price_change: "Prijswijziging",
   title_change: "Naam gewijzigd",
   bonus_change: "Bonus gewijzigd",
+  ingredients_change: "Ingredienten gewijzigd",
   removed: "Uit assortiment",
   multi_change: "Wijziging",
 };
@@ -29,10 +30,16 @@ export default function DashboardPage() {
   const [products, setProducts] = useState<(CatalogProduct | null)[]>([]);
   const [histories, setHistories] = useState<Record<string, ProductHistoryEntry | null>>({});
   const [retailers, setRetailers] = useState<Retailer[]>([]);
+  const [recentChanges, setRecentChanges] = useState<RecentChange[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingChanges, setLoadingChanges] = useState(true);
 
   useEffect(() => {
     api.retailers().then(setRetailers).catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    api.recentChanges(50).then(setRecentChanges).finally(() => setLoadingChanges(false));
   }, []);
 
   useEffect(() => {
@@ -65,21 +72,13 @@ export default function DashboardPage() {
     [products]
   );
 
-  /** Alleen wijzigingen van de supermarkt tonen; geen oude first_seen wanneer gebruiker net favoriet maakt. */
   const RECENT_DAYS = 14;
   const changesList = useMemo(() => {
     const cutoff = Date.now() - RECENT_DAYS * 24 * 60 * 60 * 1000;
-    return followedIds
-      .map((id) => {
-        const entry = histories[id];
-        const product = products[followedIds.indexOf(id)];
-        if (!entry || !product || entry.event_type === "unchanged") return null;
-        const entryTime = new Date(entry.created_at).getTime();
-        if (entryTime < cutoff) return null; // Alleen recente (supermarkt-)wijzigingen
-        return { product: product as CatalogProduct, entry };
-      })
-      .filter((x): x is { product: CatalogProduct; entry: ProductHistoryEntry } => x != null);
-  }, [followedIds, histories, products]);
+    return recentChanges
+      .filter((item) => new Date(item.created_at).getTime() >= cutoff)
+      .map((item) => ({ product: item.product, entry: { id: item.id, product_id: item.product_id, snapshot_id: item.snapshot_id, event_type: item.event_type, changes: item.changes, price_at_snapshot: item.price_at_snapshot, created_at: item.created_at } }));
+  }, [recentChanges]);
 
   const getRetailer = (retailerId: string) => retailers.find((r) => r.id === retailerId);
 
@@ -232,10 +231,24 @@ export default function DashboardPage() {
       {/* Sectie 2: Recente wijzigingen */}
       <section>
         <h2 className="text-lg font-semibold text-slate-900 mb-4">Recente wijzigingen</h2>
-        {followedIds.length === 0 ? (
-          <p className="text-slate-500 text-sm">Volg producten om hier wijzigingen sinds het laatste snapshot te zien.</p>
+        {loadingChanges ? (
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <Card key={i} className="border-slate-200">
+                <CardContent className="p-4">
+                  <div className="flex gap-3">
+                    <Skeleton className="h-12 w-12 rounded-lg shrink-0" />
+                    <div className="min-w-0 flex-1 space-y-2">
+                      <Skeleton text className="w-full" />
+                      <Skeleton className="h-5 w-20" />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
         ) : changesList.length === 0 ? (
-          <p className="text-slate-500 text-sm">Geen wijzigingen bij je gevolgde producten sinds het laatste snapshot.</p>
+          <p className="text-slate-500 text-sm">Geen recente wijzigingen in de afgelopen 14 dagen.</p>
         ) : (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {changesList.map(({ product, entry }) => {
@@ -243,7 +256,7 @@ export default function DashboardPage() {
               const changes = (entry.changes || {}) as Record<string, { old?: number; new?: number; pct_change?: number }>;
               const priceChange = changes.price;
               return (
-                <Card key={product.id} className="border-slate-200 shadow-sm">
+                <Card key={entry.id} className="border-slate-200 shadow-sm">
                   <CardContent className="p-4">
                     <div className="flex gap-3">
                       {product.image_url ? (

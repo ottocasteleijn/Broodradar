@@ -400,6 +400,17 @@ def api_product(product_id):
     return jsonify(product)
 
 
+@app.route("/api/recent-changes")
+@api_login_required
+def api_recent_changes():
+    limit = request.args.get("limit", 50, type=int)
+    limit = min(max(limit, 1), 200)
+    retailer = request.args.get("retailer", "").strip() or None
+    event_type = request.args.get("type", "").strip() or None
+    changes = database.get_recent_changes(limit=limit, retailer=retailer, event_type=event_type)
+    return jsonify(changes)
+
+
 @app.route("/api/products/<product_id>/history")
 @api_login_required
 def api_product_history(product_id):

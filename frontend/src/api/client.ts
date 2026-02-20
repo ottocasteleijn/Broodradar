@@ -58,6 +58,17 @@ export interface ProductHistoryEntry {
   created_at: string;
 }
 
+export interface RecentChange {
+  id: string;
+  product_id: string;
+  snapshot_id: string;
+  event_type: string;
+  changes: Record<string, unknown>;
+  price_at_snapshot: number | null;
+  created_at: string;
+  product: CatalogProduct;
+}
+
 export interface ProductAtSnapshot {
   product: CatalogProduct;
   snapshot: { id: string; created_at: string | null; retailer: string };
@@ -127,6 +138,7 @@ const CACHE_TTL = {
   product: 2 * 60 * 1000,          // 2 min
   productHistory: 2 * 60 * 1000,   // 2 min
   productAtSnapshot: 2 * 60 * 1000, // 2 min
+  recentChanges: 2 * 60 * 1000,    // 2 min
 } as const;
 
 const cache = new Map<string, { data: unknown; expiresAt: number }>();
@@ -311,6 +323,18 @@ export const api = {
     return cached(key, CACHE_TTL.productHistory, () => {
       const params = limit != null ? `?limit=${limit}` : '';
       return request<ProductHistoryEntry[]>(`/api/products/${id}/history${params}`);
+    });
+  },
+
+  recentChanges: (limit?: number, retailer?: string, type?: string) => {
+    const key = `recentChanges:${limit ?? 50}:${retailer ?? ''}:${type ?? ''}`;
+    return cached(key, CACHE_TTL.recentChanges, () => {
+      const params = new URLSearchParams();
+      if (limit != null) params.set('limit', String(limit));
+      if (retailer) params.set('retailer', retailer);
+      if (type) params.set('type', type);
+      const qs = params.toString();
+      return request<RecentChange[]>(`/api/recent-changes${qs ? `?${qs}` : ''}`);
     });
   },
 

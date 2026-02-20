@@ -510,6 +510,52 @@ def get_product_history(product_id, limit=50):
         return []
 
 
+DASHBOARD_EVENT_TYPES = ("price_change", "ingredients_change")
+
+
+def get_recent_changes(limit=50, retailer=None, event_type=None):
+    """Haal recente product_history entries op met product_catalog info, nieuwste eerst.
+    Alleen price_change en ingredients_change worden getoond op het dashboard."""
+    if not _check_product_catalog():
+        return []
+    sb = _get_client()
+    try:
+        fetch_limit = min(limit * 3, 500)
+        q = (
+            sb.table("product_history")
+            .select("*")
+            .in_("event_type", list(DASHBOARD_EVENT_TYPES))
+            .order("created_at", desc=True)
+            .limit(fetch_limit)
+        )
+        if event_type:
+            q = q.eq("event_type", event_type)
+        rows = q.execute().data or []
+        if not rows:
+            return []
+        product_ids = list({r["product_id"] for r in rows})
+        catalog_by_id = {}
+        chunk_size = 100
+        for i in range(0, len(product_ids), chunk_size):
+            chunk = product_ids[i : i + chunk_size]
+            r = sb.table("product_catalog").select("*").in_("id", chunk).execute()
+            for p in r.data or []:
+                catalog_by_id[p["id"]] = p
+        result = []
+        for h in rows:
+            product = catalog_by_id.get(h["product_id"])
+            if not product:
+                continue
+            if retailer and product.get("retailer") != retailer:
+                continue
+            result.append({**h, "product": product})
+            if len(result) >= limit:
+                break
+        return result
+    except Exception:
+        return []
+
+
 def get_product_at_snapshot(product_id, snapshot_id):
     """
     Haal het product op zoals het was in een bepaald snapshot.
