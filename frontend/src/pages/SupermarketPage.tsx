@@ -96,14 +96,14 @@ export default function SupermarketPage() {
     }
   };
 
-  if (loading) {
-    return <div className="text-slate-500">Producten laden...</div>;
-  }
-
   const handleExport = useCallback(() => {
     const date = new Date().toISOString().slice(0, 10);
     exportToCsv(filteredProducts, `${retailer?.name || "producten"}-${date}.csv`);
   }, [filteredProducts, retailer]);
+
+  if (loading) {
+    return <div className="text-slate-500">Producten laden...</div>;
+  }
 
   if (!retailer) {
     return <div>Supermarkt niet gevonden</div>;
