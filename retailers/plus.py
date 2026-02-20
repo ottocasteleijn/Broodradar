@@ -45,7 +45,7 @@ def _fetch_html(url):
 
 
 def _parse_product_list(html):
-    """Parse product links, titles, prices and bonus from a PLP page."""
+    """Parse product links, titles, prices, images and bonus from a PLP page."""
     products = []
 
     link_pattern = re.compile(
@@ -61,11 +61,21 @@ def _parse_product_list(html):
         r'PricePrevious[^>]*>(.*?)</div',
         re.DOTALL,
     )
+    image_pattern = re.compile(
+        r'src="(https://images\.ctfassets\.net/s0lodsnpsezb/(\d+)_M/[^"]+)"'
+    )
 
     links = link_pattern.findall(html)
     price_ints = price_int_pattern.findall(html)
     price_decs = price_dec_pattern.findall(html)
     prev_prices = prev_price_pattern.findall(html)
+
+    images_by_sku = {}
+    for url, sku in image_pattern.findall(html):
+        url = url.replace("&amp;", "&")
+        url = re.sub(r"[?&]w=\d+", "?w=200", url)
+        url = re.sub(r"[?&]h=\d+", "&h=200", url)
+        images_by_sku.setdefault(sku, url)
 
     for i, (slug, title) in enumerate(links):
         sku = slug.rsplit("-", 1)[-1] if "-" in slug else slug
@@ -89,6 +99,9 @@ def _parse_product_list(html):
                 except (ValueError, TypeError):
                     pass
 
+        image_url = images_by_sku.get(sku)
+        images = [{"url": image_url, "width": 200}] if image_url else []
+
         products.append({
             "webshopId": sku,
             "hqId": sku,
@@ -105,7 +118,7 @@ def _parse_product_list(html):
             "discountLabels": [],
             "descriptionHighlights": None,
             "propertyIcons": [],
-            "images": [],
+            "images": images,
             "availableOnline": True,
             "orderAvailabilityStatus": None,
             "_plus_slug": slug,
