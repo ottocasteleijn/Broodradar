@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+{% block title %}Dashboard - Broodradar{% endblock %}
+{% block content %}
+<div class="dashboard-header">
+    <div>
+        <h1>Broodradar</h1>
+        <p class="meta">Vergelijk broodprijzen bij {{ RETAILERS|length }} supermarkten</p>
+    </div>
+</div>
+
+<div class="retailer-grid">
+    {% for slug, info in RETAILERS.items() %}
+    {% set s = stats[slug] %}
+    <a href="{{ url_for('retailer_detail', slug=slug) }}"
+       class="retailer-card {% if not info.active %}retailer-card--inactive{% endif %}"
+       style="--retailer-color: {{ info.color }}">
+        <div class="retailer-card__header">
+            <span class="retailer-card__name">{{ info.name }}</span>
+            {% if info.active %}
+            <span class="retailer-card__badge retailer-card__badge--active">Actief</span>
+            {% else %}
+            <span class="retailer-card__badge retailer-card__badge--soon">Binnenkort</span>
+            {% endif %}
+        </div>
+        <p class="retailer-card__desc">{{ info.description }}</p>
+        <div class="retailer-card__stats">
+            {% if s.last_snapshot %}
+            <span>{{ s.last_snapshot.product_count }} producten</span>
+            <span class="meta">{{ s.last_snapshot.created_at[:10] }}</span>
+            {% else %}
+            <span class="meta">Nog geen data</span>
+            {% endif %}
+        </div>
+        {% if not info.active %}
+        <div class="retailer-card__overlay">Binnenkort beschikbaar</div>
+        {% endif %}
+    </a>
+    {% endfor %}
+</div>
+
+{% if recent_events %}
+<div class="dashboard-section">
+    <div class="section-header">
+        <h2>Recente wijzigingen</h2>
+        <a href="{{ url_for('timeline') }}" class="btn">Bekijk alles</a>
+    </div>
+    <div class="timeline-compact">
+        {% for ev in recent_events %}
+        <div class="timeline-item timeline-item--{{ ev.event_type }}">
+            <span class="timeline-item__retailer" style="background: {{ RETAILERS[ev.retailer].color }}">{{ RETAILERS[ev.retailer].name[:2]|upper }}</span>
+            <div class="timeline-item__content">
+                <span class="timeline-item__title">{{ ev.product_title }}</span>
+                <span class="timeline-item__detail">
+                    {% if ev.event_type == 'price_change' %}
+                        &euro;{{ "%.2f"|format(ev.details.old_price) }} &rarr; &euro;{{ "%.2f"|format(ev.details.new_price) }}
+                        <span class="{% if ev.details.pct_change > 0 %}price-up{% else %}price-down{% endif %}">
+                            ({{ "%+.1f"|format(ev.details.pct_change) }}%)
+                        </span>
+                    {% elif ev.event_type == 'new_product' %}
+                        Nieuw product
+                    {% elif ev.event_type == 'removed_product' %}
+                        Verwijderd
+                    {% elif ev.event_type == 'bonus_change' %}
+                        {% if ev.details.is_bonus %}Nu in bonus{% else %}Bonus afgelopen{% endif %}
+                    {% endif %}
+                </span>
+            </div>
+            <span class="timeline-item__time meta">{{ ev.created_at[:10] }}</span>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+{% endblock %}

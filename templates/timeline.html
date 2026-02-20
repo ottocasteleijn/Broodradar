@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% block title %}Timeline - Broodradar{% endblock %}
+{% block content %}
+<div class="dashboard-header">
+    <div>
+        <h1>Timeline</h1>
+        <p class="meta">Laatste wijzigingen in het broodassortiment</p>
+    </div>
+</div>
+
+<div class="filters">
+    <select id="timeline-retailer" class="filter-select" onchange="applyTimelineFilters()">
+        <option value="">Alle supermarkten</option>
+        {% for slug, info in RETAILERS.items() %}
+        <option value="{{ slug }}" {% if retailer_filter == slug %}selected{% endif %}>{{ info.name }}</option>
+        {% endfor %}
+    </select>
+    <select id="timeline-type" class="filter-select" onchange="applyTimelineFilters()">
+        <option value="">Alle wijzigingen</option>
+        <option value="new_product" {% if type_filter == 'new_product' %}selected{% endif %}>Nieuwe producten</option>
+        <option value="removed_product" {% if type_filter == 'removed_product' %}selected{% endif %}>Verwijderde producten</option>
+        <option value="price_change" {% if type_filter == 'price_change' %}selected{% endif %}>Prijswijzigingen</option>
+        <option value="bonus_change" {% if type_filter == 'bonus_change' %}selected{% endif %}>Bonus wijzigingen</option>
+    </select>
+</div>
+
+{% if events %}
+<div class="timeline">
+    {% set ns = namespace(current_date='') %}
+    {% for ev in events %}
+    {% set ev_date = ev.created_at[:10] %}
+    {% if ev_date != ns.current_date %}
+    {% set ns.current_date = ev_date %}
+    <div class="timeline__date-separator">
+        <span>{{ ev_date }}</span>
+    </div>
+    {% endif %}
+
+    <div class="timeline__event timeline__event--{{ ev.event_type }}">
+        <div class="timeline__dot" style="background: {{ RETAILERS[ev.retailer].color if ev.retailer in RETAILERS else '#999' }}"></div>
+        <div class="timeline__line"></div>
+        <div class="timeline__card">
+            <div class="timeline__card-header">
+                <span class="timeline__retailer-badge" style="background: {{ RETAILERS[ev.retailer].color if ev.retailer in RETAILERS else '#999' }}">
+                    {{ RETAILERS[ev.retailer].name if ev.retailer in RETAILERS else ev.retailer }}
+                </span>
+                <span class="timeline__event-type">
+                    {% if ev.event_type == 'new_product' %}Nieuw product
+                    {% elif ev.event_type == 'removed_product' %}Verwijderd
+                    {% elif ev.event_type == 'price_change' %}Prijswijziging
+                    {% elif ev.event_type == 'bonus_change' %}Bonus
+                    {% endif %}
+                </span>
+            </div>
+            <div class="timeline__card-body">
+                {% if ev.product_image_url %}
+                <img src="{{ ev.product_image_url }}" alt="" width="40" height="40" class="timeline__product-img" loading="lazy">
+                {% endif %}
+                <div>
+                    <strong>{{ ev.product_title }}</strong>
+                    <div class="timeline__detail">
+                        {% if ev.event_type == 'price_change' %}
+                            &euro;{{ "%.2f"|format(ev.details.old_price) }} &rarr; &euro;{{ "%.2f"|format(ev.details.new_price) }}
+                            <span class="{% if ev.details.pct_change > 0 %}price-up{% else %}price-down{% endif %}">
+                                ({{ "%+.1f"|format(ev.details.pct_change) }}%)
+                            </span>
+                        {% elif ev.event_type == 'new_product' and ev.details.get('price') %}
+                            &euro;{{ "%.2f"|format(ev.details.price) }}
+                        {% elif ev.event_type == 'bonus_change' %}
+                            {% if ev.details.is_bonus %}Nu in bonus{% else %}Bonus afgelopen{% endif %}
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="placeholder-message">
+    <h2>Nog geen wijzigingen</h2>
+    <p>Maak minimaal twee snapshots van een supermarkt om wijzigingen te zien.</p>
+</div>
+{% endif %}
+{% endblock %}

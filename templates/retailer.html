@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+{% block title %}{{ info.name }} - Broodradar{% endblock %}
+{% block content %}
+<div class="retailer-header" style="--retailer-color: {{ info.color }}">
+    <div>
+        <a href="{{ url_for('dashboard') }}" class="back-link">&larr; Dashboard</a>
+        <h1>{{ info.name }}</h1>
+        {% if snapshot %}
+        <p class="meta">Snapshot van {{ snapshot.created_at[:16] | replace('T', ' ') }} &middot; <span id="product-count">{{ products|length }}</span> producten</p>
+        {% else %}
+        <p class="meta">Nog geen snapshot beschikbaar</p>
+        {% endif %}
+    </div>
+    {% if info.active %}
+    <form method="post" action="{{ url_for('snapshot_new', slug=slug) }}">
+        <button type="submit" class="btn btn-primary" style="background: {{ info.color }}; border-color: {{ info.color }}">Nieuwe Snapshot</button>
+    </form>
+    {% else %}
+    <span class="btn btn-disabled">API nog niet beschikbaar</span>
+    {% endif %}
+</div>
+
+{% if products %}
+<div class="filters">
+    <input type="text" id="filter-search" placeholder="Zoeken..." class="filter-input">
+    <select id="filter-category" class="filter-select">
+        <option value="">Alle categorieën</option>
+        {% for cat in categories %}
+        <option value="{{ cat }}">{{ cat }}</option>
+        {% endfor %}
+    </select>
+    <select id="filter-brand" class="filter-select">
+        <option value="">Alle merken</option>
+        {% for brand in brands %}
+        <option value="{{ brand }}">{{ brand }}</option>
+        {% endfor %}
+    </select>
+    <select id="filter-nutriscore" class="filter-select">
+        <option value="">Alle nutriscores</option>
+        {% for ns in ['A','B','C','D','E'] %}
+        <option value="{{ ns }}">{{ ns }}</option>
+        {% endfor %}
+    </select>
+    <select id="filter-bonus" class="filter-select">
+        <option value="">Bonus & regulier</option>
+        <option value="true">Alleen bonus</option>
+        <option value="false">Geen bonus</option>
+    </select>
+</div>
+
+<table class="product-table">
+    <thead>
+        <tr>
+            <th></th>
+            <th class="sortable" data-sort="title">Product</th>
+            <th class="sortable" data-sort="brand">Merk</th>
+            <th class="sortable" data-sort="price">Prijs</th>
+            <th>Eenheid</th>
+            <th class="sortable" data-sort="nutriscore">Nutri</th>
+            <th class="sortable" data-sort="category">Categorie</th>
+            <th>Bonus</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for p in products %}
+        <tr data-title="{{ p.title|lower }}"
+            data-category="{{ p.sub_category }}"
+            data-brand="{{ p.brand }}"
+            data-nutriscore="{{ p.nutriscore }}"
+            data-bonus="{{ p.is_bonus|lower }}"
+            data-price="{{ p.price }}"
+            class="{% if p.is_bonus %}bonus-row{% endif %}">
+            <td class="img-cell">
+                {% if p.image_url %}
+                <img src="{{ p.image_url }}" alt="" width="48" height="48" loading="lazy">
+                {% endif %}
+            </td>
+            <td>{{ p.title }}</td>
+            <td>{{ p.brand or '-' }}</td>
+            <td class="price-cell">&euro;{{ "%.2f"|format(p.price) if p.price else '-' }}</td>
+            <td class="unit-cell">{{ p.sales_unit_size or '-' }}</td>
+            <td><span class="nutriscore nutriscore-{{ p.nutriscore|lower if p.nutriscore else 'unknown' }}">{{ p.nutriscore or '-' }}</span></td>
+            <td class="cat-cell">{{ p.sub_category or '-' }}</td>
+            <td>{% if p.is_bonus %}<span class="badge badge-bonus">Bonus</span>{% endif %}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% elif not info.active %}
+<div class="placeholder-message">
+    <h2>{{ info.name }} komt binnenkort</h2>
+    <p>We werken aan de integratie met {{ info.name }}. Zodra de API beschikbaar is, kun je hier broodprijzen volgen.</p>
+</div>
+{% endif %}
+{% endblock %}

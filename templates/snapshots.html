@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% block title %}Snapshots - Broodradar{% endblock %}
+{% block content %}
+<div class="dashboard-header">
+    <h1>Snapshot historie</h1>
+</div>
+
+<div class="filters">
+    <select id="snapshot-retailer" class="filter-select" onchange="location.href='{{ url_for('snapshots') }}?retailer=' + this.value">
+        <option value="">Alle supermarkten</option>
+        {% for slug, info in RETAILERS.items() %}
+        <option value="{{ slug }}" {% if retailer_filter == slug %}selected{% endif %}>{{ info.name }}</option>
+        {% endfor %}
+    </select>
+</div>
+
+{% if snapshots|length >= 2 %}
+<form method="get" action="{{ url_for('vergelijk') }}" id="compare-form">
+    <table class="product-table">
+        <thead>
+            <tr>
+                <th>Oud</th>
+                <th>Nieuw</th>
+                <th>Supermarkt</th>
+                <th>Datum</th>
+                <th>Producten</th>
+                <th>Label</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for s in snapshots %}
+            <tr>
+                <td><input type="radio" name="old" value="{{ s.id }}" {% if loop.index == 2 %}checked{% endif %}></td>
+                <td><input type="radio" name="new" value="{{ s.id }}" {% if loop.index == 1 %}checked{% endif %}></td>
+                <td>
+                    <span class="retailer-tag" style="background: {{ RETAILERS[s.retailer].color if s.retailer in RETAILERS else '#999' }}">
+                        {{ RETAILERS[s.retailer].name if s.retailer in RETAILERS else s.retailer }}
+                    </span>
+                </td>
+                <td>{{ s.created_at[:16] | replace('T', ' ') }}</td>
+                <td>{{ s.product_count }}</td>
+                <td>{{ s.label or '-' }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    <button type="submit" class="btn btn-primary">Vergelijk geselecteerde snapshots</button>
+</form>
+{% elif snapshots|length == 1 %}
+<table class="product-table">
+    <thead>
+        <tr>
+            <th>Supermarkt</th>
+            <th>Datum</th>
+            <th>Producten</th>
+            <th>Label</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for s in snapshots %}
+        <tr>
+            <td>
+                <span class="retailer-tag" style="background: {{ RETAILERS[s.retailer].color if s.retailer in RETAILERS else '#999' }}">
+                    {{ RETAILERS[s.retailer].name if s.retailer in RETAILERS else s.retailer }}
+                </span>
+            </td>
+            <td>{{ s.created_at[:16] | replace('T', ' ') }}</td>
+            <td>{{ s.product_count }}</td>
+            <td>{{ s.label or '-' }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+<p class="meta">Maak nog een snapshot om te kunnen vergelijken.</p>
+{% else %}
+<p class="meta">Nog geen snapshots. Ga naar een supermarkt en klik op "Nieuwe Snapshot" om te beginnen.</p>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "supabase": {
+      "command": "/usr/local/bin/node",
+      "args": [
+        "/Users/user/Broodradar/node_modules/@supabase/mcp-server-supabase/dist/transports/stdio.js",
+        "--project-ref=mrlmxmkmkcjvmiqavodi"
+      ],
+      "env": {
+        "SUPABASE_ACCESS_TOKEN": "sbp_e74353b06ebea06d8c3f52e3984ec673a4f1a2e3"
+      }
+    }
+  }
+}

@@ -1,0 +1,148 @@
+{% extends "base.html" %}
+{% block title %}Vergelijking - Broodradar{% endblock %}
+{% block content %}
+<div class="dashboard-header">
+    <h1>Wijzigingen</h1>
+    <p class="meta">Snapshot {{ old_snapshot.created_at[:16] | replace('T', ' ') }} &rarr; {{ new_snapshot.created_at[:16] | replace('T', ' ') }}</p>
+</div>
+
+{% set total = changes.new_products|length + changes.removed_products|length + changes.price_changes|length + changes.bonus_changes|length %}
+
+{% if total == 0 %}
+<div class="change-section">
+    <p class="meta">Geen wijzigingen gevonden tussen deze twee snapshots.</p>
+</div>
+{% endif %}
+
+{% if changes.new_products %}
+<div class="change-section change-new">
+    <h2>Nieuwe producten ({{ changes.new_products|length }})</h2>
+    <table class="product-table">
+        <thead>
+            <tr>
+                <th></th>
+                <th>Product</th>
+                <th>Merk</th>
+                <th>Prijs</th>
+                <th>Categorie</th>
+                <th>Nutri</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for p in changes.new_products %}
+            <tr>
+                <td class="img-cell">
+                    {% if p.image_url %}<img src="{{ p.image_url }}" width="48" height="48" loading="lazy">{% endif %}
+                </td>
+                <td>{{ p.title }}</td>
+                <td>{{ p.brand or '-' }}</td>
+                <td class="price-cell">&euro;{{ "%.2f"|format(p.price) if p.price else '-' }}</td>
+                <td>{{ p.sub_category or '-' }}</td>
+                <td><span class="nutriscore nutriscore-{{ p.nutriscore|lower if p.nutriscore else 'unknown' }}">{{ p.nutriscore or '-' }}</span></td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endif %}
+
+{% if changes.removed_products %}
+<div class="change-section change-removed">
+    <h2>Verwijderde producten ({{ changes.removed_products|length }})</h2>
+    <table class="product-table">
+        <thead>
+            <tr>
+                <th></th>
+                <th>Product</th>
+                <th>Merk</th>
+                <th>Prijs</th>
+                <th>Categorie</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for p in changes.removed_products %}
+            <tr>
+                <td class="img-cell">
+                    {% if p.image_url %}<img src="{{ p.image_url }}" width="48" height="48" loading="lazy">{% endif %}
+                </td>
+                <td>{{ p.title }}</td>
+                <td>{{ p.brand or '-' }}</td>
+                <td class="price-cell">&euro;{{ "%.2f"|format(p.price) if p.price else '-' }}</td>
+                <td>{{ p.sub_category or '-' }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endif %}
+
+{% if changes.price_changes %}
+<div class="change-section change-price">
+    <h2>Prijswijzigingen ({{ changes.price_changes|length }})</h2>
+    <table class="product-table">
+        <thead>
+            <tr>
+                <th></th>
+                <th>Product</th>
+                <th>Merk</th>
+                <th>Was</th>
+                <th>Nu</th>
+                <th>Verschil</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for c in changes.price_changes %}
+            <tr>
+                <td class="img-cell">
+                    {% if c.product.image_url %}<img src="{{ c.product.image_url }}" width="48" height="48" loading="lazy">{% endif %}
+                </td>
+                <td>{{ c.product.title }}</td>
+                <td>{{ c.product.brand or '-' }}</td>
+                <td class="price-cell">&euro;{{ "%.2f"|format(c.old_price) }}</td>
+                <td class="price-cell">&euro;{{ "%.2f"|format(c.new_price) }}</td>
+                <td class="{% if c.pct_change > 0 %}price-up{% else %}price-down{% endif %}">
+                    {{ "%+.1f"|format(c.pct_change) }}%
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endif %}
+
+{% if changes.bonus_changes %}
+<div class="change-section change-bonus">
+    <h2>Bonus wijzigingen ({{ changes.bonus_changes|length }})</h2>
+    <table class="product-table">
+        <thead>
+            <tr>
+                <th></th>
+                <th>Product</th>
+                <th>Merk</th>
+                <th>Status</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for c in changes.bonus_changes %}
+            <tr>
+                <td class="img-cell">
+                    {% if c.product.image_url %}<img src="{{ c.product.image_url }}" width="48" height="48" loading="lazy">{% endif %}
+                </td>
+                <td>{{ c.product.title }}</td>
+                <td>{{ c.product.brand or '-' }}</td>
+                <td>
+                    {% if c.is_bonus %}
+                    <span class="badge badge-bonus">Nu in bonus</span>
+                    {% else %}
+                    <span class="badge badge-no-bonus">Bonus afgelopen</span>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endif %}
+
+<a href="{{ url_for('snapshots') }}" class="btn">&larr; Terug naar snapshots</a>
+{% endblock %}
