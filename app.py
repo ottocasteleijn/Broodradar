@@ -293,6 +293,29 @@ def api_snapshot_new(slug):
         return jsonify({"error": f"Fout bij ophalen: {e}"}), 500
 
 
+@app.route("/api/cron/snapshots")
+def cron_snapshots():
+    """Vercel cron: dagelijkse snapshot voor alle actieve retailers. Beveiligd met CRON_SECRET."""
+    auth = request.headers.get("Authorization", "")
+    expected = os.environ.get("CRON_SECRET", "")
+    if not expected or auth != f"Bearer {expected}":
+        return jsonify({"error": "Unauthorized"}), 401
+
+    results = {}
+    for slug, info in RETAILERS.items():
+        if not info["active"]:
+            continue
+        try:
+            fetcher = get_fetcher(slug)
+            products = fetcher.fetch_all_products()
+            snapshot_id = database.create_snapshot(products, retailer=slug)
+            results[slug] = {"ok": True, "product_count": len(products), "snapshot_id": snapshot_id}
+        except Exception as e:
+            results[slug] = {"ok": False, "error": str(e)}
+
+    return jsonify({"results": results})
+
+
 @app.route("/api/snapshots")
 @api_login_required
 def api_snapshots():
@@ -326,6 +349,15 @@ def api_timeline():
         event_type=type_filter or None,
     )
     return jsonify(events)
+
+
+@app.errorhandler(404)
+def fallback_to_frontend(e):
+    """Serve the React frontend for any route not matched by Flask (client-side routing)."""
+    index = os.path.join(FRONTEND_DIR, "index.html")
+    if os.path.isfile(index):
+        return send_from_directory(FRONTEND_DIR, "index.html")
+    return "Frontend niet gebuild. Draai 'npm run build' in frontend/.", 404
 
 
 if __name__ == "__main__":
