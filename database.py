@@ -163,7 +163,11 @@ def _update_catalog_and_history(sb, retailer, snapshot_id, rows, has_retailer):
         if existing:
             product_id = existing["id"]
             seen_catalog_ids.append(product_id)
-            if event_type != "unchanged":
+            needs_image_update = (
+                not existing.get("image_url")
+                and catalog_row.get("image_url")
+            )
+            if event_type != "unchanged" or needs_image_update:
                 sb.table("product_catalog").update({
                     "title": catalog_row["title"],
                     "brand": catalog_row["brand"],
